@@ -4,6 +4,11 @@
 
 Scrape the Gran Turismo 7 official car list and store results in SQLite with local images.
 
+## IMPORTANT LEGAL RISK NOTICE
+- This repository only licenses its own source code; it does not grant rights to third-party site content, assets, trademarks, or brand materials.
+- Before running the scraper, review the target website terms and your local laws. If terms disallow this use, do not proceed without permission.
+- Do not publish or redistribute scraped datasets, images, logos, or raw payloads.
+
 ## Quick Start
 ```bash
 python3 -m venv .venv
