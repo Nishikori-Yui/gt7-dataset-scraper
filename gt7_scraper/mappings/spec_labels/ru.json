@@ -1,0 +1,11 @@
+{
+  "Объем двигателя": "displacement",
+  "Привод": "drivetrain",
+  "Макс. мощность": "max_power",
+  "Макс. крутящий момент": "max_torque",
+  "Масса": "weight",
+  "Наддув": "aspiration",
+  "Длина": "length",
+  "Ширина": "width",
+  "Высота": "height"
+}

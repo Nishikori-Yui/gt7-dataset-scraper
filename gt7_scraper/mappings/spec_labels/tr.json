@@ -1,0 +1,11 @@
+{
+  "Motor Hacmi": "displacement",
+  "Çekiş Sistemi": "drivetrain",
+  "Maksimum Güç": "max_power",
+  "Maksimum Tork": "max_torque",
+  "Ağırlık": "weight",
+  "Havalandırma": "aspiration",
+  "Uzunluk": "length",
+  "Genişlik": "width",
+  "Yükseklik": "height"
+}

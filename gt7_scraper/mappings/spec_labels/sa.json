@@ -1,0 +1,11 @@
+{
+  "الإزاحة": "displacement",
+  "نقل الحركة": "drivetrain",
+  "الحد الأقصى للقوة": "max_power",
+  "أقصى عزم دوران": "max_torque",
+  "الوزن": "weight",
+  "سحب المحرك": "aspiration",
+  "الطول": "length",
+  "العرض": "width",
+  "الارتفاع": "height"
+}

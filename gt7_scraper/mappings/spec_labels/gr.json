@@ -1,0 +1,11 @@
+{
+  "Κυβισμός": "displacement",
+  "Μετάδοση": "drivetrain",
+  "Μέγιστη Ισχύς": "max_power",
+  "Μέγιστη Ροπή": "max_torque",
+  "Βάρος": "weight",
+  "Εισ. Αέρα": "aspiration",
+  "Μήκος": "length",
+  "Πλάτος": "width",
+  "Ύψος": "height"
+}

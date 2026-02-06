@@ -1,0 +1,11 @@
+{
+  "총 배기량": "displacement",
+  "구동 형식": "drivetrain",
+  "최고 출력": "max_power",
+  "최대 토크": "max_torque",
+  "차량 중량": "weight",
+  "흡기 형식": "aspiration",
+  "전장": "length",
+  "전폭": "width",
+  "전고": "height"
+}

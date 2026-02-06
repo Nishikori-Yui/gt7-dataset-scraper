@@ -1,0 +1,11 @@
+{
+  "Pojemność": "displacement",
+  "Napęd": "drivetrain",
+  "Maks. moc": "max_power",
+  "Maks. moment obrotowy": "max_torque",
+  "Waga": "weight",
+  "Typ dolotu": "aspiration",
+  "Długość": "length",
+  "Szerokość": "width",
+  "Wysokość": "height"
+}

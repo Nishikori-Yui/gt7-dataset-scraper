@@ -1,0 +1,11 @@
+{
+  "Zdvihový objem": "displacement",
+  "Pohon": "drivetrain",
+  "Max. výkon": "max_power",
+  "Max. točivý moment": "max_torque",
+  "Hmotnost": "weight",
+  "Sání": "aspiration",
+  "Délka": "length",
+  "Šířka": "width",
+  "Výška": "height"
+}

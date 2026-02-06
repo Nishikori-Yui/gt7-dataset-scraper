@@ -1,0 +1,11 @@
+{
+  "Cilindrada": "displacement",
+  "Sistema de tração": "drivetrain",
+  "Potência Máx.": "max_power",
+  "Binário Máx.": "max_torque",
+  "Peso": "weight",
+  "Aspiração": "aspiration",
+  "Comprimento": "length",
+  "Largura": "width",
+  "Altura": "height"
+}

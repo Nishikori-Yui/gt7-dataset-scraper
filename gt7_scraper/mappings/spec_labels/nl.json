@@ -1,0 +1,11 @@
+{
+  "Cilinderinhoud": "displacement",
+  "Aandrijflijn": "drivetrain",
+  "Max. vermogen": "max_power",
+  "Max. koppel": "max_torque",
+  "Gewicht": "weight",
+  "Aanzuiging": "aspiration",
+  "Lengte": "length",
+  "Breedte": "width",
+  "Hoogte": "height"
+}

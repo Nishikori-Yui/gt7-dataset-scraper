@@ -1,0 +1,11 @@
+{
+  "Displacement": "displacement",
+  "Drivetrain": "drivetrain",
+  "Max Power": "max_power",
+  "Max Torque": "max_torque",
+  "Weight": "weight",
+  "Aspiration": "aspiration",
+  "Length": "length",
+  "Width": "width",
+  "Height": "height"
+}

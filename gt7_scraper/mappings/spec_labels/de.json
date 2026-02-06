@@ -1,0 +1,11 @@
+{
+  "Hubraum": "displacement",
+  "Antrieb": "drivetrain",
+  "Max. Leistung": "max_power",
+  "Max. Drehmoment": "max_torque",
+  "Gewicht": "weight",
+  "Ansaugung": "aspiration",
+  "Länge": "length",
+  "Breite": "width",
+  "Höhe": "height"
+}

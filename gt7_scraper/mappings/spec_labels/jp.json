@@ -1,0 +1,11 @@
+{
+  "総排気量": "displacement",
+  "駆動形式": "drivetrain",
+  "最高出力": "max_power",
+  "最大トルク": "max_torque",
+  "車重": "weight",
+  "吸気形式": "aspiration",
+  "全長": "length",
+  "全幅": "width",
+  "全高": "height"
+}
