@@ -14,7 +14,11 @@ def run_cpp_merge(
     timeout: Optional[int] = None,
 ) -> Tuple[bool, str]:
     if not binary.exists():
-        return False, f"cpp merge binary not found: {binary}"
+        exe_binary = binary.with_suffix(".exe")
+        if exe_binary.exists():
+            binary = exe_binary
+        else:
+            return False, f"cpp merge binary not found: {binary}"
 
     cmd = [
         str(binary),

@@ -8,8 +8,10 @@
 后端选项（全局）：
 - `--query-engine auto|python|go`（默认：`auto`）
 - `--query-go-bin ./local/bin/gt7-query-go`
+- `--query-fallback on|off`（默认：`on`，也可由 `GT7DB_QUERY_FALLBACK` 控制）
 - `auto` 路由规则：所有子命令默认走 Go 后端。
 - 当 Go 路径上的二进制缺失或执行失败时，CLI 会给出 warning 并自动回退到 Python 后端。
+- 当设置 `--query-fallback off` 时，Go 后端失败会直接退出，不再回退到 Python。
 - 迁移阶段仍保留 Python 后端以兼容历史用法。
 
 ### 列表（仅 id + name）

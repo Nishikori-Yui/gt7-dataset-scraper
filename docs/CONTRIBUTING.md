@@ -11,6 +11,14 @@ Thank you for contributing. Please keep this repository clean and compliant.
 - Keep code comments in English.
 - Documentation should be written in English, and optional translations may be added under `docs/` (for example `*.zh-CN.md`).
 
+## File Placement Rules
+- Runtime orchestration goes to `gt7_scraper/app/` and `gt7_query/app/`.
+- Business logic goes to `gt7_scraper/domain/` and `gt7_query/domain/`.
+- Backend adapters (python/native bridge) go to `gt7_scraper/backends/` and `gt7_query/backends/`.
+- Infrastructure helpers (DB/HTTP/IO) go to `gt7_scraper/infra/` and `gt7_query/infra/`.
+- Compatibility-only forwarding modules go to `gt7_scraper/compat/` and `gt7_query/compat/`.
+- Native toolchain source stays in top-level `engines/`; do not move it under runtime packages.
+
 ## Pull Request Checklist
 - [ ] No data or assets included
 - [ ] No `output/` files included

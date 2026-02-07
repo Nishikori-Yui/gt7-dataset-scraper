@@ -18,6 +18,23 @@ and how data is stored and queried.
 - `docs/`: workflow, schema, and publishing guidance
 - `output/`: default runtime output (ignored by git)
 
+## Runtime Package Layout (Business First)
+The runtime code is organized by business boundaries first, then backend type:
+- `gt7_scraper/app/`: scrape/build entry orchestration (`scrape_runner.py`, `build_runner.py`, `scrape_cli.py`)
+- `gt7_scraper/domain/`: catalog/spec/images business logic
+- `gt7_scraper/backends/`: Python/native adapters (`catalog`, `spec`, `images`, `playwright`)
+- `gt7_scraper/infra/`: DB/HTTP/IO infrastructure helpers
+- `gt7_scraper/compat/`: compatibility shims for legacy import paths
+- `gt7_query/app/`: query CLI entry
+- `gt7_query/domain/`: list/detail/stats/overview services
+- `gt7_query/backends/`: go/python query backend dispatch
+- `gt7_query/infra/`: low-level DB helpers
+- `gt7_query/compat/`: compatibility shims for legacy `queries` usage
+
+Notes:
+- Top-level `engines/` remains the native source root (Go/Rust/Node/C++/.NET).
+- Compatibility modules are transitional and may be removed in a future release.
+
 ## Execution Modes
 - `--engine python`: minimal dependency baseline implementation.
 - `--engine hybrid`: recommended mode; keeps schema/CLI semantics while routing selected hot paths to Go/Rust/Node and SQL/C++ merge backends.

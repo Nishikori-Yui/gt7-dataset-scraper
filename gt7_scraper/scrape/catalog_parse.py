@@ -1,4 +1,5 @@
 import re
+import sys
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
@@ -120,6 +121,39 @@ def parse_id_list(js_text: str) -> Optional[List[Any]]:
     data = find_largest_array(js_text)
     if isinstance(data, list):
         return data
+    return None
+
+
+def parse_chunk_with_backend(
+    js_text: str,
+    chunk_type: str,
+    go_catalog_bin: Optional[str],
+    warning_state: Optional[Dict[str, bool]] = None,
+    allow_fallback: bool = True,
+) -> Any:
+    if go_catalog_bin:
+        try:
+            from ..backends.catalog.go_parser import parse_chunk_with_go
+
+            parsed = parse_chunk_with_go(go_catalog_bin, js_text, chunk_type)
+            if chunk_type in {"car", "tuner"}:
+                return parsed if isinstance(parsed, dict) else {}
+            if chunk_type == "id_list":
+                return parsed if isinstance(parsed, list) else None
+        except Exception as exc:
+            if not allow_fallback:
+                raise ScraperError(f"gt7-catalog-go failed and backend-fallback=off: {exc}") from exc
+            shown = bool((warning_state or {}).get("shown"))
+            if not shown:
+                print(f"warning: gt7-catalog-go failed ({exc}); using python catalog parser", file=sys.stderr)
+                if warning_state is not None:
+                    warning_state["shown"] = True
+    if chunk_type == "car":
+        return parse_car_data(js_text)
+    if chunk_type == "tuner":
+        return parse_tuner_data(js_text)
+    if chunk_type == "id_list":
+        return parse_id_list(js_text)
     return None
 
 

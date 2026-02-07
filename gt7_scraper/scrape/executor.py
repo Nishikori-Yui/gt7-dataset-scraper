@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from tqdm import tqdm
 
 from .. import db
-from ..engine.spec_rust import normalize_specs_with_rust
+from ..backends.spec.rust_normalizer import normalize_codes_with_rust, normalize_specs_with_rust
 from ..parser import json_dumps, map_spec_label, normalize_specs as normalize_specs_py
 from .constants import BASE_URL
 from .detail_fetch import extract_detail_with_playwright, extract_detail_with_playwright_on_page
@@ -198,6 +198,8 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
                 retries=ctx["download_retries"],
             )
         except Exception:
+            if not ctx.get("backend_fallback", True):
+                raise
             session = ctx["get_session"]()
             logo_path = build_logo(manufacturer_id, logo_url, ctx["image_dir"], session, ctx["timeout"])
             image_rows = build_car_images(
@@ -235,6 +237,22 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
             continue
         filtered_pairs.append((label, raw_value))
     spec_pairs = filtered_pairs
+    if ctx["rust_spec_bin"] is not None:
+        try:
+            normalized_codes = normalize_codes_with_rust(
+                binary=ctx["rust_spec_bin"],
+                locale=ctx["locale"],
+                aspiration=aspiration_raw,
+                aspiration_short=aspiration_code,
+                drivetrain=drivetrain_label or ctx["pick_first"](car, ["driveTrain"]),
+            )
+            aspiration_code = normalized_codes.get("aspiration_code") or aspiration_code
+            aspiration_label = normalized_codes.get("aspiration_label") or aspiration_label
+            drivetrain_code = normalized_codes.get("drivetrain_code") or drivetrain_code
+            drivetrain_label = normalized_codes.get("drivetrain_label") or drivetrain_label
+        except Exception:
+            if not ctx.get("backend_fallback", True):
+                raise
     return {
         "car_id": car_id,
         "manufacturer": {
@@ -323,6 +341,8 @@ def run_car_processing(
                             mappings_dir=ctx["spec_mappings_dir"],
                         )
                     except Exception:
+                        if not ctx.get("backend_fallback", True):
+                            raise
                         spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])
                 else:
                     spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])

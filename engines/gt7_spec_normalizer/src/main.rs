@@ -9,9 +9,17 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 #[derive(Deserialize)]
-struct InputPayload {
+struct SpecInputPayload {
     locale: String,
     specs: Vec<(String, String)>,
+}
+
+#[derive(Deserialize)]
+struct CodesInputPayload {
+    locale: String,
+    aspiration: Option<String>,
+    aspiration_short: Option<String>,
+    drivetrain: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -25,6 +33,14 @@ struct SpecRow {
     sort_order: usize,
 }
 
+#[derive(Serialize)]
+struct CodesOutput {
+    aspiration_code: Option<String>,
+    aspiration_label: Option<String>,
+    drivetrain_code: Option<String>,
+    drivetrain_label: Option<String>,
+}
+
 fn normalize_unit_text(text: &str) -> String {
     text.to_lowercase().replace(' ', "")
 }
@@ -32,7 +48,8 @@ fn normalize_unit_text(text: &str) -> String {
 fn infer_spec_code(raw_value: &str, dim_index: usize) -> (Option<String>, usize) {
     let value = raw_value.trim();
     let norm = normalize_unit_text(value);
-    let drivetrain_codes: HashSet<&str> = ["FR", "FF", "MR", "RR", "4WD", "AWD"].into_iter().collect();
+    let drivetrain_codes: HashSet<&str> =
+        ["FR", "FF", "MR", "RR", "4WD", "AWD"].into_iter().collect();
     if drivetrain_codes.contains(value) {
         return (Some("drivetrain".to_string()), dim_index);
     }
@@ -65,10 +82,32 @@ fn infer_spec_code(raw_value: &str, dim_index: usize) -> (Option<String>, usize)
         "دورة في الدقيقة",
     ];
     let power_units = [
-        "hp", "ps", "bhp", "kw", "ch", "cv", "pk", "k.s.", "ks", "к.с", "л.с", "마력", "แรงม้า",
+        "hp",
+        "ps",
+        "bhp",
+        "kw",
+        "ch",
+        "cv",
+        "pk",
+        "k.s.",
+        "ks",
+        "к.с",
+        "л.с",
+        "마력",
+        "แรงม้า",
     ];
     let torque_units = [
-        "nm", "n·m", "n.m", "нм", "kgm", "kgfm", "kgf·m", "kgf-m", "ft-lb", "lb-ft", "公斤力米",
+        "nm",
+        "n·m",
+        "n.m",
+        "нм",
+        "kgm",
+        "kgfm",
+        "kgf·m",
+        "kgf-m",
+        "ft-lb",
+        "lb-ft",
+        "公斤力米",
     ];
     if value.contains('/') && rpm_tokens.iter().any(|t| norm.contains(t)) {
         let left = value.split('/').next().unwrap_or("").trim();
@@ -87,10 +126,14 @@ fn infer_spec_code(raw_value: &str, dim_index: usize) -> (Option<String>, usize)
         return (Some("max_torque".to_string()), dim_index);
     }
     let weight_units = ["kg", "公斤", "lbs", "lb", "кг"];
-    if weight_units.iter().any(|u| norm.contains(u)) && !torque_units.iter().any(|u| norm.contains(u)) {
+    if weight_units.iter().any(|u| norm.contains(u))
+        && !torque_units.iter().any(|u| norm.contains(u))
+    {
         return (Some("weight".to_string()), dim_index);
     }
-    let length_units = ["mm", "㎜", "мм", "公釐", "毫米", "in", "inch", "in.", "มม", "مم"];
+    let length_units = [
+        "mm", "㎜", "мм", "公釐", "毫米", "in", "inch", "in.", "มม", "مم",
+    ];
     if length_units.iter().any(|u| norm.contains(u)) {
         let dims = ["length", "width", "height"];
         if dim_index < dims.len() {
@@ -168,7 +211,7 @@ fn map_spec_label(
     (code, trimmed.to_string(), dim_index)
 }
 
-fn normalize_specs(payload: &InputPayload, mappings_dir: &PathBuf) -> Vec<SpecRow> {
+fn normalize_specs(payload: &SpecInputPayload, mappings_dir: &PathBuf) -> Vec<SpecRow> {
     let mapping = load_mapping(mappings_dir, &payload.locale);
     let mut rows: Vec<SpecRow> = Vec::new();
     let mut order: usize = 1;
@@ -224,28 +267,179 @@ fn normalize_specs(payload: &InputPayload, mappings_dir: &PathBuf) -> Vec<SpecRo
     rows
 }
 
-fn parse_mappings_dir() -> PathBuf {
+fn extract_aspiration_label(raw_value: Option<&str>) -> Option<String> {
+    let text = raw_value?.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let re = Regex::new(r"[（(]\s*([^）)]+)\s*[）)]").ok()?;
+    if let Some(captures) = re.captures(text) {
+        if let Some(group) = captures.get(1) {
+            let label = group.as_str().trim();
+            if !label.is_empty() {
+                return Some(label.to_string());
+            }
+        }
+    }
+    Some(text.to_string())
+}
+
+fn normalize_aspiration_code(raw_value: Option<&str>, short_code: Option<&str>) -> Option<String> {
+    let raw = short_code.filter(|v| !v.trim().is_empty()).or(raw_value)?;
+    let text = raw.trim();
+    if text.is_empty() || text == "---" {
+        return None;
+    }
+    let text_clean = text.replace(' ', "").replace('＋', "+").to_uppercase();
+    if text_clean.starts_with("TC+SC") {
+        return Some("TC+SC".to_string());
+    }
+    if Regex::new(r"^T(\b|\+)").ok()?.is_match(&text_clean) {
+        return Some("TC".to_string());
+    }
+    for code in ["NA", "TC", "SC", "EV", "HV"] {
+        if text_clean.starts_with(code) {
+            return Some(code.to_string());
+        }
+    }
+
+    let lower = text.to_lowercase();
+    let na_tokens = [
+        "自然",
+        "naturally",
+        "n/a",
+        "na",
+        "atmosfér",
+        "atmosfer",
+        "doğal",
+        "dogal",
+        "emişli",
+        "ατμοσφαιρ",
+        "سحب طبيعي",
+        "ไม่ใช้ระบบอัดอากาศ",
+    ];
+    if na_tokens.iter().any(|t| lower.contains(t)) {
+        return Some("NA".to_string());
+    }
+    let tc_tokens = ["涡轮", "渦輪", "turbo", "ターボ", "터보", "турбо"];
+    if tc_tokens.iter().any(|t| lower.contains(t)) {
+        return Some("TC".to_string());
+    }
+    let sc_tokens = [
+        "机械",
+        "機械",
+        "supercharger",
+        "スーパーチャージャ",
+        "슈퍼차저",
+        "kompresor",
+        "kompresör",
+    ];
+    if sc_tokens.iter().any(|t| lower.contains(t)) {
+        return Some("SC".to_string());
+    }
+    let ev_tokens = ["电", "電", "electric", "電気", "전기"];
+    if ev_tokens.iter().any(|t| lower.contains(t)) {
+        return Some("EV".to_string());
+    }
+    None
+}
+
+fn normalize_drivetrain_code(raw_value: Option<&str>) -> Option<String> {
+    let text = raw_value?.trim();
+    if text.is_empty() || text == "---" {
+        return None;
+    }
+    let upper = text.to_uppercase().replace(' ', "");
+    for code in ["FR", "FF", "MR", "RR", "4WD", "AWD"] {
+        if upper == code {
+            return Some(code.to_string());
+        }
+    }
+    let cn_map = HashMap::from([
+        ("前置后驱", "FR"),
+        ("前置前驱", "FF"),
+        ("中置后驱", "MR"),
+        ("后置后驱", "RR"),
+        ("四驱", "4WD"),
+    ]);
+    if let Some(mapped) = cn_map.get(text) {
+        return Some((*mapped).to_string());
+    }
+    None
+}
+
+fn normalize_codes(payload: &CodesInputPayload) -> CodesOutput {
+    let aspiration_code = normalize_aspiration_code(
+        payload.aspiration.as_deref(),
+        payload.aspiration_short.as_deref(),
+    );
+    let aspiration_label = extract_aspiration_label(
+        payload
+            .aspiration
+            .as_deref()
+            .or(payload.aspiration_short.as_deref()),
+    );
+    let drivetrain_code = normalize_drivetrain_code(payload.drivetrain.as_deref());
+    let drivetrain_label = payload
+        .drivetrain
+        .as_ref()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+
+    CodesOutput {
+        aspiration_code,
+        aspiration_label,
+        drivetrain_code,
+        drivetrain_label,
+    }
+}
+
+fn parse_args() -> (PathBuf, String) {
     let args: Vec<String> = env::args().collect();
     let mut mappings = PathBuf::from("./gt7_scraper/mappings/spec_labels");
+    let mut mode = "specs".to_string();
     let mut idx = 0usize;
     while idx < args.len() {
         if args[idx] == "--mappings-dir" && idx + 1 < args.len() {
             mappings = PathBuf::from(args[idx + 1].clone());
             idx += 1;
+        } else if args[idx] == "--mode" && idx + 1 < args.len() {
+            mode = args[idx + 1].clone();
+            idx += 1;
         }
         idx += 1;
     }
-    mappings
+    (mappings, mode)
 }
 
 fn main() {
-    let mappings_dir = parse_mappings_dir();
+    let (mappings_dir, mode) = parse_args();
     let mut input = String::new();
     if let Err(err) = io::stdin().read_to_string(&mut input) {
         eprintln!("{err}");
         std::process::exit(2);
     }
-    let payload: InputPayload = match serde_json::from_str(&input) {
+
+    if mode == "codes" {
+        let payload: CodesInputPayload = match serde_json::from_str(&input) {
+            Ok(value) => value,
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(2);
+            }
+        };
+        let output = normalize_codes(&payload);
+        match serde_json::to_string(&output) {
+            Ok(text) => println!("{text}"),
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(2);
+            }
+        }
+        return;
+    }
+
+    let payload: SpecInputPayload = match serde_json::from_str(&input) {
         Ok(value) => value,
         Err(err) => {
             eprintln!("{err}");

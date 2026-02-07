@@ -280,6 +280,7 @@ def run(args: argparse.Namespace) -> None:
             catalog_engine=catalog_engine,
             playwright_engine=playwright_engine,
             spec_engine=spec_engine,
+            backend_fallback=(args.backend_fallback == "on"),
         )
         if exit_code != 0:
             raise RuntimeError(f"run_scraper failed for locale={locale} db={db_path} exit_code={exit_code}")

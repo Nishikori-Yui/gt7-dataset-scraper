@@ -167,6 +167,22 @@ def parse_list_html_for_thumbs(html: str) -> Dict[str, List[str]]:
     return deduped
 
 
+def parse_list_html_for_thumbs_with_backend(
+    html: str,
+    go_catalog_bin: Optional[str],
+) -> Dict[str, List[str]]:
+    if go_catalog_bin:
+        try:
+            from ..backends.catalog.go_parser import parse_list_thumbs_with_go
+
+            parsed = parse_list_thumbs_with_go(go_catalog_bin, html)
+            if parsed:
+                return parsed
+        except Exception:
+            pass
+    return parse_list_html_for_thumbs(html)
+
+
 def extract_list_thumbs_with_playwright(locale: str, timeout: int = 30) -> Dict[str, List[str]]:
     try:
         from playwright.sync_api import sync_playwright
@@ -199,7 +215,7 @@ def extract_list_thumbs_with_playwright(locale: str, timeout: int = 30) -> Dict[
                 pass
             html = page.content()
             browser.close()
-        return parse_list_html_for_thumbs(html)
+        return parse_list_html_for_thumbs_with_backend(html, go_catalog_bin=None)
     except Exception:
         return {}
 

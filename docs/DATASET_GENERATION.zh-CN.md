@@ -93,6 +93,7 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--download-retries N`：混合模式图片下载重试次数
 - `--playwright-engine python|node`：Playwright 后端选择
 - `--spec-engine python|rust`：规格归一化后端选择
+- `--backend-fallback on|off`：原生后端失败时是否允许回退到 Python 后端
 - `--resume`：若该语言在 `fetch_log` 的最新状态为 `success`，则跳过该车辆
 - `--workers N`：按车辆并发抓取（线程池，默认 1）
 - `--rate SEC`：每辆车处理完成后的延时（全局节流，默认 `0.7`）

@@ -1,4 +1,4 @@
-from .queries import (
+from .compat.queries import (
     get_car_details,
     list_cars,
     list_cars_sorted_by_country,

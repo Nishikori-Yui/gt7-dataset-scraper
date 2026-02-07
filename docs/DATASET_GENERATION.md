@@ -93,6 +93,7 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--download-retries N`: downloader retries for hybrid image downloads
 - `--playwright-engine python|node`: Playwright backend selection
 - `--spec-engine python|rust`: spec normalization backend selection
+- `--backend-fallback on|off`: allow or disable fallback to python backends on native backend failure
 - `--resume`: skips cars whose latest `fetch_log` status is `success` for the locale you are running
 - `--workers N`: parallelizes per-car processing using a thread pool (default: 1)
 - `--rate SEC`: sleeps after each processed car (global throttling; default: `0.7`)
