@@ -204,6 +204,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         default="./local/bin/gt7-hero-check",
         help="Rust hero-check binary path",
     )
+    parser.add_argument(
+        "--backend-fallback",
+        choices=["on", "off"],
+        default="on",
+        help="Allow fallback to python backends when native backend fails",
+    )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -356,6 +362,8 @@ def run(args: argparse.Namespace) -> None:
                         if msg:
                             print(msg)
                     else:
+                        if args.backend_fallback == "off":
+                            raise SystemExit(f"merge-engine=cpp failed and backend-fallback=off: {msg}")
                         print(f"warning: {msg}; falling back to python merge engine", file=sys.stderr)
                 elif args.merge_engine == "go":
                     ok, msg = run_go_merge(
@@ -372,6 +380,8 @@ def run(args: argparse.Namespace) -> None:
                         if msg:
                             print(msg)
                     else:
+                        if args.backend_fallback == "off":
+                            raise SystemExit(f"merge-engine=go failed and backend-fallback=off: {msg}")
                         print(f"warning: {msg}; falling back to python merge engine", file=sys.stderr)
 
                 if not did_native_merge:
@@ -419,6 +429,8 @@ def run(args: argparse.Namespace) -> None:
                 if msg:
                     print(msg)
             else:
+                if args.backend_fallback == "off":
+                    raise SystemExit(f"hero-check-engine=rust failed and backend-fallback=off: {msg}")
                 print(f"warning: {msg}; falling back to python hero-check", file=sys.stderr)
                 checked_rows = 0
                 all_diffs = []
