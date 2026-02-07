@@ -1,25 +1,27 @@
-from .dbx import (
+from .images import get_car_images, prune_car_texts_except_locale, replace_images
+from .meta import (
+    count_cars,
+    get_meta,
+    latest_status,
+    log_fetch,
+    set_meta,
+)
+from .schema import (
     backfill_manufacturer_country_from_raw_json,
     cleanup_aspiration_drivetrain,
     cleanup_descriptions,
     cleanup_spec_labels,
     configure_sqlite,
     connect_db,
-    count_cars,
-    get_aspiration_label,
-    get_car_images,
-    get_meta,
     init_db,
-    latest_status,
-    log_fetch,
-    prune_car_texts_except_locale,
     replace_country_i18n,
     replace_country_iso_map,
-    replace_images,
-    replace_specs,
-    set_meta,
-    set_spec_label,
     sync_manufacturers_from_i18n,
+)
+from .upsert import (
+    get_aspiration_label,
+    replace_specs,
+    set_spec_label,
     upsert_aspiration,
     upsert_car,
     upsert_car_text,
