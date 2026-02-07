@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from tqdm import tqdm
 
 from .. import db
-from ..engine.spec_rust import normalize_codes_with_rust, normalize_specs_with_rust
+from ..backends.spec.rust_normalizer import normalize_codes_with_rust, normalize_specs_with_rust
 from ..parser import json_dumps, map_spec_label, normalize_specs as normalize_specs_py
 from .constants import BASE_URL
 from .detail_fetch import extract_detail_with_playwright, extract_detail_with_playwright_on_page

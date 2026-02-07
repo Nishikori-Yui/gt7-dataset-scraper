@@ -173,7 +173,7 @@ def parse_list_html_for_thumbs_with_backend(
 ) -> Dict[str, List[str]]:
     if go_catalog_bin:
         try:
-            from ..engine.catalog_go import parse_list_thumbs_with_go
+            from ..backends.catalog.go_parser import parse_list_thumbs_with_go
 
             parsed = parse_list_thumbs_with_go(go_catalog_bin, html)
             if parsed:

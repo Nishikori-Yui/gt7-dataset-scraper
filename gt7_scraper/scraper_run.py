@@ -6,17 +6,17 @@ from threading import Lock, local as thread_local
 from typing import Any, Callable, Dict, List, Optional
 
 from . import db
-from .engine.catalog_go import (
+from .backends.catalog.go_parser import (
     parse_detail_with_go,
     resolve_catalog_binary,
 )
-from .engine.downloader import resolve_downloader_binary
-from .engine.playwright_node import (
+from .backends.images.go_downloader import resolve_downloader_binary
+from .backends.playwright.node_pw import (
     extract_detail_with_node,
     extract_list_thumbs_with_node,
     resolve_node_playwright_script,
 )
-from .engine.spec_rust import resolve_rust_spec_binary
+from .backends.spec.rust_normalizer import resolve_rust_spec_binary
 from .parser import parse_descriptions
 from .utils import slugify
 from .scrape.catalog_parse import (

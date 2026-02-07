@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
 
-from ..engine.downloader import run_downloader_jobs
+from ..backends.images.go_downloader import run_downloader_jobs
 from ..utils import download_file, looks_like_image_url
 from .catalog_parse import normalize_url
 

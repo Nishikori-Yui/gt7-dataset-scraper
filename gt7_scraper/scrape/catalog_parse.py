@@ -132,7 +132,7 @@ def parse_chunk_with_backend(
 ) -> Any:
     if go_catalog_bin:
         try:
-            from ..engine.catalog_go import parse_chunk_with_go
+            from ..backends.catalog.go_parser import parse_chunk_with_go
 
             parsed = parse_chunk_with_go(go_catalog_bin, js_text, chunk_type)
             if chunk_type in {"car", "tuner"}:
