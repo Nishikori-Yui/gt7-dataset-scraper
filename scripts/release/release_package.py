@@ -26,7 +26,6 @@ WORKER_EXCLUDES = [
     "gt7_query/cli.py",
     "gt7_query/queries.py",
     "gt7_scraper/cli.py",
-    "gt7_scraper/scraper.py",
     "gt7_scraper/engine/catalog_go.py",
     "gt7_scraper/engine/downloader.py",
     "gt7_scraper/engine/playwright_node.py",

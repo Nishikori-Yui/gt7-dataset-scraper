@@ -129,6 +129,13 @@ def check_query_fallback_off(package_dir: Path, launcher: Path) -> None:
         shutil.rmtree(temp, ignore_errors=True)
 
 
+def check_build_dbs_entrypoint(package_dir: Path, launcher: Path) -> None:
+    proc = run([str(launcher), "build-dbs", "--help"], cwd=package_dir)
+    assert_true(proc.returncode == 0, f"build-dbs --help failed: {proc.stderr}")
+    text = proc.stdout + "\n" + proc.stderr
+    assert_true("Build per-locale DBs" in text, "build-dbs help output mismatch")
+
+
 def check_excluded_modules(package_dir: Path, manifest: dict) -> None:
     worker_root = package_dir / "runtime" / "python" / "worker"
     for rel in manifest.get("excluded_python_modules", []):
@@ -145,6 +152,7 @@ def main() -> None:
     manifest = check_manifest(package_dir)
     launcher = launcher_path(package_dir)
     check_doctor(package_dir, launcher)
+    check_build_dbs_entrypoint(package_dir, launcher)
     check_query_fallback_off(package_dir, launcher)
     check_excluded_modules(package_dir, manifest)
     print("[ok] release smoke passed")
