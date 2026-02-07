@@ -174,7 +174,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--merge-engine",
         choices=["python", "cpp", "go"],
-        default="python",
+        default="go",
         help="Merge backend when --combined-mode=merge",
     )
     parser.add_argument(
@@ -190,7 +190,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--hero-check-engine",
         choices=["python", "rust"],
-        default="python",
+        default="rust",
         help="Hero validation backend",
     )
     parser.add_argument(
