@@ -6,7 +6,10 @@ from threading import Lock, local as thread_local
 from typing import Any, Callable, Dict, List, Optional
 
 from . import db
-from .engine.catalog_go import parse_detail_with_go, resolve_catalog_binary
+from .engine.catalog_go import (
+    parse_detail_with_go,
+    resolve_catalog_binary,
+)
 from .engine.downloader import resolve_downloader_binary
 from .engine.playwright_node import (
     extract_detail_with_node,
@@ -26,6 +29,7 @@ from .scrape.catalog_parse import (
     fetch_text,
     parse_car_data,
     parse_id_list,
+    parse_chunk_with_backend,
     parse_tuner_data,
     pick_first,
     resolve_asset_url,
@@ -36,6 +40,7 @@ from .scrape.detail_fetch import (
     PlaywrightPool,
     extract_list_thumbs_with_playwright,
     parse_detail_html,
+    parse_list_html_for_thumbs_with_backend,
     resolve_hero_urls_from_asset_modules,
 )
 from .scrape.executor import run_car_processing
@@ -124,7 +129,8 @@ def run_scraper(
         raise ScraperError("Failed to locate car data chunk name")
     car_chunk_url = resolve_asset_url(car_chunk_name)
     car_chunk_js = fetch_text(session, car_chunk_url, timeout)
-    car_data = parse_car_data(car_chunk_js)
+    catalog_warning = {"shown": False}
+    car_data = parse_chunk_with_backend(car_chunk_js, "car", go_catalog_bin, catalog_warning)
 
     tuner_map: Dict[str, str] = {}
     tuner_chunk_name = extract_chunk_name(
@@ -133,7 +139,7 @@ def run_scraper(
     if tuner_chunk_name:
         tuner_chunk_url = resolve_asset_url(tuner_chunk_name)
         tuner_chunk_js = fetch_text(session, tuner_chunk_url, timeout)
-        tuners = parse_tuner_data(tuner_chunk_js)
+        tuners = parse_chunk_with_backend(tuner_chunk_js, "tuner", go_catalog_bin, catalog_warning)
         for key, val in tuners.items():
             if isinstance(val, dict) and "name" in val:
                 tuner_map[key] = str(val["name"])
@@ -145,10 +151,10 @@ def run_scraper(
     if id_list_name:
         id_list_url = resolve_asset_url(id_list_name)
         id_list_js = fetch_text(session, id_list_url, timeout)
-        id_list = parse_id_list(id_list_js)
+        id_list = parse_chunk_with_backend(id_list_js, "id_list", go_catalog_bin, catalog_warning)
 
     car_ids: List[str] = []
-    thumb_map: Dict[str, List[str]] = {}
+    thumb_map = parse_list_html_for_thumbs_with_backend(html, go_catalog_bin)
 
     if id_list:
         if id_list and isinstance(id_list[0], dict):
@@ -247,8 +253,6 @@ def run_scraper(
         if not hasattr(session_local, "session"):
             session_local.session = build_session()
         return session_local.session
-
-    catalog_warning = {"shown": False}
 
     def parse_detail_payload(detail_html: str, car_id: str) -> Dict[str, Any]:
         if go_catalog_bin:
