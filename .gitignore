@@ -10,3 +10,7 @@ local/
 engines/gt7_playwright/node_modules/
 engines/gt7_spec_normalizer/target/
 engines/gt7_downloader/gt7-downloader
+engines/gt7_hero_check_rust/target/
+engines/gt7db_launcher_dotnet/bin/
+engines/gt7db_launcher_dotnet/obj/
+dist/
