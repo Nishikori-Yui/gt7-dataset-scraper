@@ -229,8 +229,13 @@ cd engines/gt7_db_merge_go && go build -o ../../local/bin/gt7-db-merge-go .
 ```
 
 ## 可选打包
-可生成带统一入口的可分发包：
+常规使用优先下载预编译 release 包。
+本地打包仅用于开发/调试场景：
 ```bash
 ./scripts/package_gt7db.sh --flavor lite
+```
+
+可选调试包（包含浏览器运行时）：
+```bash
 ./scripts/package_gt7db.sh --flavor full
 ```

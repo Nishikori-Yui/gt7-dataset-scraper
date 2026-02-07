@@ -14,7 +14,7 @@ and how data is stored and queried.
 - `gt7_scraper/`: fetches GT7 car catalog data and writes into SQLite (+ optional images)
 - `gt7_scraper/build/`: build orchestration (`scripts/build_dbs.py`) including progress, merge, hero checks
 - `gt7_query/`: reads the SQLite database and provides CLI + Python API for consumers
-- `engines/`: optional non-Python accelerators (`gt7_downloader`, `gt7_spec_normalizer`, `gt7_playwright`, `gt7_db_merge_cpp`, `gt7_db_merge_go`, `gt7_hero_check_rust`, `gt7_query_go`, `gt7db_launcher_dotnet`)
+- `engines/`: native source roots and launcher source (`gt7_downloader`, `gt7_spec_normalizer`, `gt7_playwright`, `gt7_db_merge_cpp`, `gt7_db_merge_go`, `gt7_hero_check_rust`, `gt7_query_go`, `gt7db_launcher_dotnet`)
 - `docs/`: workflow, schema, and publishing guidance
 - `output/`: default runtime output (ignored by git)
 
@@ -47,7 +47,7 @@ This project is intentionally built as a learning/experiment repository. The cor
 - Rust: deterministic spec normalization + optional hero validation backend
 - Node/Playwright: browser-side extraction fallback when static assets are incomplete
 - C++ (SQLite C API): optional high-throughput merge backend for `gt7.<locale>.db -> gt7.db`
-- C#/.NET: optional `gt7db` launcher wrapping Python core entrypoints
+- C#/.NET: `gt7db` launcher (primary entrypoint in release packages; optional in source-only development)
 
 Rule of use:
 - defaults stay backward-compatible

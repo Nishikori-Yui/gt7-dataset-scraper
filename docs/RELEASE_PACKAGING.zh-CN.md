@@ -2,39 +2,49 @@
 
 [English](RELEASE_PACKAGING.md) | [简体中文](RELEASE_PACKAGING.zh-CN.md)
 
-本文定义 GT7-Dataset 的可直接使用发布体系。
+本文定义 GT7-Dataset 在生产使用场景下的发布与消费方式。
 
-## 目标
+## 首选使用路径
+优先使用 GitHub Release 的预编译包。
+
+- 下载地址：https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest
+- 按平台选择 `GT7DB_*_LITE_<OS>_<ARCH>`。
+- 解压后直接运行 `bin/gt7db`（Windows 为 `bin/gt7db.exe`）。
+
+本地手动构建仅用于开发、调试或需要定制打包的场景。
+命令级使用方式详见 `GT7DB_USAGE.zh-CN.md`。
+
+## 发布目标
 - 以 `gt7db`（.NET launcher）作为统一入口。
-- 常见流程下，用户无需本地安装 Go/Rust/Node/Python。
-- 发布包默认非 Python 后端，并默认 `fallback=off`。
-- 默认发布物不包含可被原生后端替代的 Python 模块。
+- 常见流程无需本地安装 Go/Rust/Node/Python 工具链。
+- 打包运行时采用 native-first 默认策略，并保持确定性的回退策略（`fallback=off`）。
+- 默认发布物排除已被原生实现替代的 Python 后端模块。
 
-## 发布包类型
-- `lite`：
+## 包类型
+- `lite`（默认发布物）：
   - `gt7db` launcher
-  - 内置 Python runtime + 最小 worker 模块
+  - 内置 Python runtime + 最小 worker/编排模块
   - 必需 native binaries
-  - 不含 Playwright 浏览器运行时
-- `full`：
-  - `lite` 全部内容
-  - 额外包含 Node runtime + Playwright worker + Chromium 浏览器依赖
+  - 不包含 Playwright 浏览器运行时
+- `full`（可选，本地手动构建）：
+  - 在 `lite` 基础上增加 Node runtime + Playwright worker + 浏览器依赖
+  - 主要用于明确需要浏览器回退的调试环境
 
 ## 平台矩阵
 - `darwin-arm64`
-- `darwin-x64`
-- `linux-x64`
+- `darwin-amd64`
+- `linux-amd64`
 - `linux-arm64`
-- `win-x64`
+- `win-amd64`
 - `win-arm64`
 
 ## 产物命名规则
-发布目录与压缩包统一命名为：
+发布目录与压缩包命名：
 - `GT7DB_<version>_<FLAVOR>_<os>_<ARCH>`
 
 示例：
 - `GT7DB_v1.2.3_LITE_macOS_ARM64`
-- `GT7DB_v1.2.3_FULL_windows_AMD64.zip`
+- `GT7DB_v1.2.3_LITE_windows_AMD64.zip`
 - `GT7DB_v1.2.3_LITE_linux_ARM64.tar.gz`
 
 ## 包结构
@@ -61,31 +71,38 @@
   SHA256SUMS
 ```
 
-## 默认后端策略（发布包）
+## 发布包默认后端策略
 打包后的 `gt7db` 在未显式传参时会注入：
 - `scrape`：`--engine hybrid --catalog-engine go --spec-engine rust --backend-fallback off`
 - `build-dbs`：`--engine hybrid --catalog-engine go --spec-engine rust --merge-engine go --hero-check-engine rust --backend-fallback off`
 - `query`：`--query-engine go --query-fallback off`（go-first）
 
-同时会自动注入 `runtime/native` 的二进制路径。
+并自动注入 `runtime/native` 的二进制路径。
 
 ## Python 模块排除策略
-默认发布包会排除可替代模块，包括：
+默认发布物会排除可替代的 Python 后端模块，包括：
 - `gt7_query/backends/python_backend.py`
-- 兼容旧入口 shim（`gt7_query/cli.py`、`gt7_query/queries.py`、`gt7_scraper/cli.py`、`gt7_scraper/scraper.py`）
-- `gt7_scraper/engine/*` 下的 legacy engine bridge shim（catalog/downloader/playwright/spec）
+- 旧入口兼容 shim（`gt7_query/cli.py`、`gt7_query/queries.py`、`gt7_scraper/cli.py`、`gt7_scraper/scraper.py`）
+- `gt7_scraper/engine/*` 下 legacy engine bridge shim（catalog/downloader/playwright/spec）
 
-如需调试包，可使用 `--include-full-python-backends` 保留完整 Python 后端模块。
+如需诊断可使用 `--include-full-python-backends` 生成包含完整 Python 后端的手动包。
 
-## 本地手动打包
+## 下载包后的快速运行
+```bash
+./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db doctor --json
+./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db scrape --locale gb --db ./output/gt7.db --images ./output/images --skip-images
+./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db query overview --db ./output/gt7.db
+```
+
+## 本地手动打包（可选）
 前置依赖：
 - Python 3.13+
 - Go
 - Rust/Cargo
 - .NET 8 SDK
-- Node 20+（`full` 必需）
+- Node 20+（仅 `full` 需要）
 
-### Lite
+### Lite（手动路径首选）
 ```bash
 python scripts/release/build_release.py \
   --flavor lite \
@@ -94,7 +111,7 @@ python scripts/release/build_release.py \
   --out-dir ./dist/release
 ```
 
-### Full
+### Full（可选，调试用途）
 ```bash
 python scripts/release/build_release.py \
   --flavor full \
@@ -103,17 +120,12 @@ python scripts/release/build_release.py \
   --out-dir ./dist/release
 ```
 
-### 一键矩阵构建（手动）
+### 手动矩阵构建（lite 优先）
 ```bash
 TAG=vX.Y.Z
-for PLATFORM in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win-x64 win-arm64; do
+for PLATFORM in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 win-amd64 win-arm64; do
   python scripts/release/build_release.py \
     --flavor lite \
-    --platform "${PLATFORM}" \
-    --version "${TAG}" \
-    --out-dir ./dist/release
-  python scripts/release/build_release.py \
-    --flavor full \
     --platform "${PLATFORM}" \
     --version "${TAG}" \
     --out-dir ./dist/release
@@ -133,24 +145,21 @@ Workflow：`.github/workflows/release-packages.yml`
 - 推送 tag：`v*`
 - 手动触发：传入 `tag`
 
-流程：
-1. 按 `平台 x flavor` 矩阵构建发布包。
-2. 每个产物执行 smoke：
-   - 校验默认后端策略是否生效
-   - 校验 `query-fallback=off` 是否生效
+默认发布流水线：
+1. 按平台矩阵构建（lite-only）发布包。
+2. 对每个产物执行 smoke，校验默认后端与 `query-fallback=off`。
 3. 上传构建产物。
-4. 自动创建/更新 GitHub Release，并上传所有产物与校验文件。
+4. 创建/更新 GitHub Release，上传产物与校验文件。
 
 ## 故障排查
 - 原生后端缺失：
   - 执行 `bin/gt7db doctor --json`。
   - 检查 `runtime/native` 与 `manifest.json`。
 - Worker 启动失败：
-  - 检查 `runtime/python` 是否包含 Python runtime。
-  - 检查 `runtime/python/worker` 下是否有 `gt7_scraper`、`gt7_query`、`scripts/build_dbs.py`。
+  - 检查 `runtime/python` 是否存在。
+  - 检查 `runtime/python/worker` 是否包含 `gt7_scraper`、`gt7_query`、`scripts/build_dbs.py`。
 - 平台不匹配：
-  - 核对包名平台后缀与目标机器架构。
-  - 用正确 `--platform` 重新构建。
-- Full 包 Playwright 异常：
-  - 检查 `runtime/playwright/browsers` 是否存在。
-  - 用 `gt7db doctor --json` 检查 `gt7-playwright` 解析路径。
+  - 核对包名后缀与目标机器架构。
+  - 手动打包时改用正确 `--platform`。
+- 需要浏览器回退：
+  - 使用手动 `full` 包构建。

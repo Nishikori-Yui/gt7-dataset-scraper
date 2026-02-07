@@ -10,10 +10,10 @@ LOCAL_BIN = REPO_ROOT / "local" / "bin"
 
 PLATFORM_CONFIG: Dict[str, Dict[str, str]] = {
     "darwin-arm64": {"rid": "osx-arm64", "goos": "darwin", "goarch": "arm64"},
-    "darwin-x64": {"rid": "osx-x64", "goos": "darwin", "goarch": "amd64"},
-    "linux-x64": {"rid": "linux-x64", "goos": "linux", "goarch": "amd64"},
+    "darwin-amd64": {"rid": "osx-amd64", "goos": "darwin", "goarch": "amd64"},
+    "linux-amd64": {"rid": "linux-amd64", "goos": "linux", "goarch": "amd64"},
     "linux-arm64": {"rid": "linux-arm64", "goos": "linux", "goarch": "arm64"},
-    "win-x64": {"rid": "win-x64", "goos": "windows", "goarch": "amd64"},
+    "win-amd64": {"rid": "win-amd64", "goos": "windows", "goarch": "amd64"},
     "win-arm64": {"rid": "win-arm64", "goos": "windows", "goarch": "arm64"},
 }
 
@@ -78,7 +78,7 @@ def build_rust_binaries(platform_id: str) -> None:
         (REPO_ROOT / "engines" / "gt7_hero_check_rust", "gt7-hero-check"),
     ]
     target = None
-    if platform_id == "darwin-x64":
+    if platform_id == "darwin-amd64":
         target = "x86_64-apple-darwin"
 
     LOCAL_BIN.mkdir(parents=True, exist_ok=True)
@@ -113,6 +113,7 @@ def build_launcher(rid: str, platform_id: str) -> Path:
     proj = REPO_ROOT / "engines" / "gt7db_launcher_dotnet" / "Gt7db.Launcher.csproj"
     out = LOCAL_BIN / f"gt7db-{rid}"
     out.mkdir(parents=True, exist_ok=True)
+    dotnet_rid = rid.replace("-amd64", "-x64")
     run(
         [
             "dotnet",
@@ -121,7 +122,7 @@ def build_launcher(rid: str, platform_id: str) -> Path:
             "-c",
             "Release",
             "-r",
-            rid,
+            dotnet_rid,
             "--self-contained",
             "true",
             "/p:PublishSingleFile=true",

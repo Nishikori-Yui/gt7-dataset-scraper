@@ -229,8 +229,13 @@ cd engines/gt7_db_merge_go && go build -o ../../local/bin/gt7-db-merge-go .
 ```
 
 ## Optional Bundling
-Build redistributable bundles with unified launcher:
+For normal usage, prefer downloading prebuilt release packages first.
+Use local bundling only for development/debugging:
 ```bash
 ./scripts/package_gt7db.sh --flavor lite
+```
+
+Optional debug bundle with browser runtime:
+```bash
 ./scripts/package_gt7db.sh --flavor full
 ```

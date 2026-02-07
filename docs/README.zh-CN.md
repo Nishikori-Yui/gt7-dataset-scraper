@@ -9,23 +9,22 @@
 - 运行抓取前请先审查目标网站条款与适用法律；若条款不允许该用途，请勿在未获授权情况下执行。
 - 不要发布或再分发抓取得到的数据集、图片、Logo 或原始 payload。
 
-## 快速开始
-```bash
-./scripts/bootstrap_python_env.sh
-```
+## 快速开始（首选：下载预编译 `gt7db` Release 包）
+1. 从这里下载最新 `GT7DB_*_LITE_<OS>_<ARCH>`：
+   - https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest
+2. 解压后执行：
 
 ```bash
-source .venv/bin/activate
-python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images ./output/images --skip-images
+./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db doctor --json
+./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db scrape --locale gb --db ./output/gt7.db --images ./output/images --skip-images
 ```
 
-可选统一入口（构建后可用）：
-```bash
-./local/bin/gt7db scrape --engine hybrid --locale gb --db ./output/gt7.db --images ./output/images --skip-images
-```
+Windows 使用 `bin\\gt7db.exe`。
 
-## 依赖安装（纯 Python）
-一键初始化（推荐）：
+## 源码环境（可选，仅开发场景）
+只有在需要开发/调试仓库源码时，才建议使用本地构建模式。
+
+### 纯 Python 环境
 ```bash
 ./scripts/bootstrap_python_env.sh
 ```
@@ -40,8 +39,7 @@ python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images 
 - `--with-playwright-browser`：安装 Playwright 包并下载 Chromium
 - `--python-bin PATH`：指定 Python 可执行文件
 
-## 依赖安装（Hybrid）
-一键初始化（推荐）：
+### Hybrid 开发环境
 ```bash
 ./scripts/bootstrap_hybrid_env.sh
 ```
@@ -50,21 +48,27 @@ python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images 
 - `--no-system-install`：仅创建 `.venv` 并构建本地引擎
 - `--skip-playwright-browser`：跳过 Playwright Chromium 下载
 - `--skip-build`：只安装/检查工具链与 Python 依赖
-- `--skip-dotnet-build`：跳过可选的 `gt7db` dotnet launcher 构建
+- `--skip-dotnet-build`：跳过本地 `gt7db` launcher 构建
 
 手动安装步骤详见 [HYBRID_ENGINE.zh-CN.md](HYBRID_ENGINE.zh-CN.md)。纯 Python 使用说明见 [DATASET_GENERATION.zh-CN.md](DATASET_GENERATION.zh-CN.md)。
 
-## 可选打包（`gt7db` Lite/Full）
-用于生成可分发打包产物：
+## 手动打包（可选）
+仅在预编译 release 包不满足需求时再使用本地打包：
 ```bash
 ./scripts/package_gt7db.sh --flavor lite
+```
+
+可选调试包：
+```bash
 ./scripts/package_gt7db.sh --flavor full
 ```
 
 常用参数：
-- `--runtime <rid>`：手动指定 dotnet runtime id（如 `osx-arm64`、`linux-x64`）
+- `--runtime <rid>`：手动指定 runtime id（如 `osx-arm64`、`linux-amd64`）
 - `--skip-build`：仅打包当前本地产物
 - `--dist-dir <path>`：自定义输出目录
+
+完整流程见 [RELEASE_PACKAGING.zh-CN.md](RELEASE_PACKAGING.zh-CN.md)。
 
 ## 推荐模式
 - 默认建议使用 `--engine hybrid`。
@@ -80,6 +84,7 @@ python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images 
 - 混合引擎指南：[HYBRID_ENGINE.zh-CN.md](HYBRID_ENGINE.zh-CN.md)
 - 模式矩阵（实测）：[MODE_MATRIX.zh-CN.md](MODE_MATRIX.zh-CN.md)
 - 发布打包体系：[RELEASE_PACKAGING.zh-CN.md](RELEASE_PACKAGING.zh-CN.md)
+- gt7db 使用指南：[GT7DB_USAGE.zh-CN.md](GT7DB_USAGE.zh-CN.md)
 - 查询 CLI/API：[QUERY_CLI.zh-CN.md](QUERY_CLI.zh-CN.md)
 - 数据库结构：[DB_SCHEMA.zh-CN.md](DB_SCHEMA.zh-CN.md)
 - 法律与发布：[LEGAL_AND_PUBLISHING.zh-CN.md](LEGAL_AND_PUBLISHING.zh-CN.md)

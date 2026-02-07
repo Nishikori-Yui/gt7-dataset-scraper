@@ -58,10 +58,24 @@ detect_runtime() {
   local os arch
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
+  case "${arch}" in
+    x86_64|amd64) arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+  esac
   case "${os}" in
     darwin) echo "osx-${arch}" ;;
     linux) echo "linux-${arch}" ;;
     *) echo "unsupported" ;;
+  esac
+}
+
+normalize_dotnet_runtime() {
+  local runtime="$1"
+  case "${runtime}" in
+    osx-amd64) echo "osx-x64" ;;
+    linux-amd64) echo "linux-x64" ;;
+    win-amd64) echo "win-x64" ;;
+    *) echo "${runtime}" ;;
   esac
 }
 
@@ -87,7 +101,7 @@ runtime_to_tokens() {
     *) os_name="${os}" ;;
   esac
   case "${arch}" in
-    x64|amd64) arch_name="AMD64" ;;
+    amd64) arch_name="AMD64" ;;
     arm64) arch_name="ARM64" ;;
     *) arch_name="${arch^^}" ;;
   esac
@@ -97,7 +111,7 @@ runtime_to_tokens() {
 if [[ "${SKIP_BUILD}" -eq 0 ]]; then
   "${ROOT_DIR}/scripts/bootstrap_hybrid_env.sh" --skip-playwright-browser
   if command -v dotnet >/dev/null 2>&1; then
-    "${ROOT_DIR}/engines/gt7db_launcher_dotnet/build.sh" "${RUNTIME}"
+    "${ROOT_DIR}/engines/gt7db_launcher_dotnet/build.sh" "$(normalize_dotnet_runtime "${RUNTIME}")"
   else
     echo "[package][warn] dotnet not found; gt7db launcher won't be bundled" >&2
   fi

@@ -13,7 +13,7 @@
 - `gt7_scraper/`：抓取 GT7 官方车辆目录数据，写入 SQLite（并可选下载图片）
 - `gt7_scraper/build/`：`scripts/build_dbs.py` 的构建编排（进度、合并、hero 校验）
 - `gt7_query/`：读取 SQLite，提供 CLI + Python API
-- `engines/`：可选的非 Python 加速组件（`gt7_downloader`、`gt7_spec_normalizer`、`gt7_playwright`、`gt7_db_merge_cpp`、`gt7_db_merge_go`、`gt7_hero_check_rust`、`gt7_query_go`、`gt7db_launcher_dotnet`）
+- `engines/`：原生组件与 launcher 的源码目录（`gt7_downloader`、`gt7_spec_normalizer`、`gt7_playwright`、`gt7_db_merge_cpp`、`gt7_db_merge_go`、`gt7_hero_check_rust`、`gt7_query_go`、`gt7db_launcher_dotnet`）
 - `docs/`：流程、Schema、发布与合规说明
 - `output/`：默认运行输出目录（已在 gitignore 中忽略）
 
@@ -46,7 +46,7 @@
 - Rust：spec 归一化热点路径 + 可选 Hero 校验后端（确定性、类型约束更强）
 - Node/Playwright：静态资源不足时的浏览器回退提取
 - C++（SQLite C API）：`gt7.<locale>.db -> gt7.db` 的可选高性能合并引擎
-- C#/.NET：可选 `gt7db` 统一入口（封装 Python Core 命令）
+- C#/.NET：`gt7db` 统一入口（发布包中的主入口；源码开发场景下可选）
 
 约束原则：
 - 默认行为保持兼容
