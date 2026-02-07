@@ -7,3 +7,6 @@ output/
 *.sqlite
 *.sqlite3
 local/
+engines/gt7_playwright/node_modules/
+engines/gt7_spec_normalizer/target/
+engines/gt7_downloader/gt7-downloader

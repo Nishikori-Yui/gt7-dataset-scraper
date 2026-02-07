@@ -1,6 +1,7 @@
 import json
 import re
 import time
+import sys
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock, local as thread_local
@@ -19,9 +20,16 @@ from .parser import (
     find_largest_object,
     json_dumps,
     map_spec_label,
-    normalize_specs,
+    normalize_specs as normalize_specs_py,
     parse_descriptions,
 )
+from .engine.downloader import resolve_downloader_binary, run_downloader_jobs
+from .engine.playwright_node import (
+    extract_detail_with_node,
+    extract_list_thumbs_with_node,
+    resolve_node_playwright_script,
+)
+from .engine.spec_rust import normalize_specs_with_rust, resolve_rust_spec_binary
 from .utils import download_file, looks_like_image_url, slugify
 
 BASE_URL = "https://www.gran-turismo.com"
@@ -314,6 +322,142 @@ def build_logo(
     except Exception:
         return None
     return str(final_path.relative_to(image_dir))
+
+
+def build_assets_with_go_downloader(
+    car_id: str,
+    manufacturer_id: str,
+    logo_url: Optional[str],
+    hero_urls: List[str],
+    thumb_urls: List[str],
+    image_dir: Path,
+    go_binary: str,
+    workers: int,
+    timeout: int,
+    retries: int,
+) -> Tuple[Optional[str], List[Dict[str, str]]]:
+    jobs: List[Dict[str, object]] = []
+    if logo_url and not logo_url.startswith("data:"):
+        jobs.append(
+            {
+                "job_id": "logo",
+                "url": normalize_url(logo_url),
+                "dest_rel": f"manufacturers/{manufacturer_id}/logo",
+            }
+        )
+    for idx, url in enumerate(hero_urls, start=1):
+        if not url or url.startswith("data:"):
+            continue
+        jobs.append(
+            {
+                "job_id": f"hero_{idx}",
+                "url": normalize_url(url),
+                "dest_rel": f"cars/{car_id}/{car_id}_hero_{idx:02d}",
+            }
+        )
+    for idx, url in enumerate(thumb_urls, start=1):
+        if not url or url.startswith("data:"):
+            continue
+        jobs.append(
+            {
+                "job_id": f"thumb_{idx}",
+                "url": normalize_url(url),
+                "dest_rel": f"cars/{car_id}/{car_id}_thumb_{idx:02d}",
+            }
+        )
+    if not jobs:
+        return None, []
+    results = run_downloader_jobs(
+        binary=go_binary,
+        image_dir=image_dir,
+        jobs=jobs,
+        workers=workers,
+        timeout=timeout,
+        retries=retries,
+    )
+    logo_path = None
+    images: List[Dict[str, str]] = []
+    for job in jobs:
+        job_id = str(job["job_id"])
+        item = results.get(job_id)
+        if not item:
+            continue
+        if item.get("status") not in {"ok", "skipped"}:
+            continue
+        path_rel = item.get("path_rel")
+        if not path_rel:
+            continue
+        if job_id == "logo":
+            logo_path = str(path_rel)
+            continue
+        if job_id.startswith("hero_"):
+            sort_order = int(job_id.split("_", 1)[1])
+            images.append(
+                {
+                    "image_path": str(path_rel),
+                    "sort_order": sort_order,
+                    "image_type": "hero",
+                }
+            )
+            continue
+        if job_id.startswith("thumb_"):
+            sort_order = int(job_id.split("_", 1)[1])
+            images.append(
+                {
+                    "image_path": str(path_rel),
+                    "sort_order": sort_order,
+                    "image_type": "thumb",
+                }
+            )
+    return logo_path, images
+
+
+def merge_image_rows_preserve_non_regression(
+    existing_rows: List[Dict[str, object]],
+    new_rows: List[Dict[str, object]],
+    protected_types: Optional[Iterable[str]] = None,
+) -> List[Dict[str, object]]:
+    protected = {str(t).lower() for t in (protected_types or ["hero", "thumb"])}
+
+    def group_by_type(rows: List[Dict[str, object]]) -> Dict[str, List[Dict[str, object]]]:
+        grouped: Dict[str, List[Dict[str, object]]] = {}
+        for row in rows:
+            image_type = str(row.get("image_type") or "").strip().lower()
+            if not image_type:
+                image_type = "unknown"
+            grouped.setdefault(image_type, []).append(
+                {
+                    "image_path": str(row.get("image_path") or ""),
+                    "sort_order": row.get("sort_order"),
+                    "image_type": image_type,
+                }
+            )
+        for values in grouped.values():
+            values.sort(key=lambda item: (item.get("sort_order") is None, item.get("sort_order"), item["image_path"]))
+        return grouped
+
+    existing_map = group_by_type(existing_rows)
+    new_map = group_by_type(new_rows)
+    type_order: List[str] = []
+    for image_type in ["hero", "thumb"]:
+        if image_type in existing_map or image_type in new_map:
+            type_order.append(image_type)
+    for image_type in list(existing_map.keys()) + list(new_map.keys()):
+        if image_type not in type_order:
+            type_order.append(image_type)
+
+    merged: List[Dict[str, object]] = []
+    for image_type in type_order:
+        old_items = existing_map.get(image_type, [])
+        new_items = new_map.get(image_type, [])
+        if image_type in protected and len(new_items) < len(old_items):
+            chosen = old_items
+        elif new_items:
+            chosen = new_items
+        else:
+            chosen = old_items
+        merged.extend(chosen)
+    return merged
 
 
 def derive_year_from_name(name: Optional[str]) -> Optional[str]:
@@ -782,6 +926,71 @@ def parse_detail_html(html: str, car_id: Optional[str] = None) -> Dict[str, Any]
     return data
 
 
+def extract_hero_module_files(index_js: str, car_id: str) -> List[str]:
+    pattern = re.compile(
+        rf'{re.escape(car_id)}_[0-9]+_[0-9]+\.(?:jpg|jpeg|png|webp)"\s*:\s*\(\)\s*=>\s*e\(\(\)\s*=>\s*import\("\./([^"]+\.js)"\)',
+        flags=re.IGNORECASE,
+    )
+    modules: List[str] = []
+    seen = set()
+    for match in pattern.finditer(index_js):
+        module_name = match.group(1)
+        if module_name in seen:
+            continue
+        seen.add(module_name)
+        modules.append(module_name)
+    return modules
+
+
+def extract_hero_urls_from_module_js(module_js: str, car_id: str) -> List[str]:
+    pattern = re.compile(
+        rf"(/common/dist/gt7/carlist/assets/{re.escape(car_id)}_[0-9]+_[0-9]+-[^\"']+\.(?:jpg|jpeg|png|webp))",
+        flags=re.IGNORECASE,
+    )
+    urls: List[str] = []
+    seen_keys = set()
+    for match in pattern.finditer(module_js):
+        url = match.group(1)
+        key_match = re.search(rf"({re.escape(car_id)}_[0-9]+_[0-9]+)", url, flags=re.IGNORECASE)
+        if not key_match:
+            continue
+        key = key_match.group(1).lower()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        urls.append(url)
+    return urls
+
+
+def resolve_hero_urls_from_asset_modules(
+    session: requests.Session,
+    index_js: str,
+    car_id: str,
+    timeout: int,
+) -> List[str]:
+    modules = extract_hero_module_files(index_js, car_id)
+    if not modules:
+        return []
+    urls: List[str] = []
+    seen_keys = set()
+    for module_name in modules:
+        module_url = resolve_asset_url(module_name)
+        try:
+            module_js = fetch_text(session, module_url, timeout)
+        except Exception:
+            continue
+        for url in extract_hero_urls_from_module_js(module_js, car_id):
+            key_match = re.search(rf"({re.escape(car_id)}_[0-9]+_[0-9]+)", url, flags=re.IGNORECASE)
+            if not key_match:
+                continue
+            key = key_match.group(1).lower()
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            urls.append(url)
+    return urls
+
+
 def run_scraper(
     locale: str,
     db_path: Path,
@@ -800,17 +1009,43 @@ def run_scraper(
     progress_callback: Optional[Callable[[], None]] = None,
     progress_desc: str = "Cars",
     progress_position: int = 0,
+    commit_batch: int = 1,
+    sqlite_wal: bool = False,
+    engines_dir: Optional[Path] = None,
+    downloader_engine: str = "python",
+    download_workers: int = 32,
+    download_timeout: int = 30,
+    download_retries: int = 2,
+    playwright_engine: str = "python",
+    spec_engine: str = "python",
 ) -> int:
     session = build_session()
     path_locale, asset_locale = resolve_locales(locale)
     base_path_locale, _ = resolve_locales(base_locale)
     locale = path_locale
     conn = db.connect_db(db_path)
+    db.configure_sqlite(conn, use_wal=sqlite_wal)
     db.init_db(conn, create_images=download_images)
     db.cleanup_descriptions(conn)
     db.cleanup_spec_labels(conn, locale)
     db.cleanup_aspiration_drivetrain(conn, locale)
     db.backfill_manufacturer_country_from_raw_json(conn)
+    go_downloader_bin: Optional[str] = None
+    if download_images and downloader_engine == "go":
+        go_downloader_bin = resolve_downloader_binary(engines_dir)
+        if go_downloader_bin is None:
+            print("warning: gt7-downloader not found; falling back to python downloader", file=sys.stderr)
+    node_playwright_script: Optional[str] = None
+    if use_playwright and playwright_engine == "node":
+        node_playwright_script = resolve_node_playwright_script(engines_dir)
+        if node_playwright_script is None:
+            print("warning: gt7-playwright not found; falling back to python playwright", file=sys.stderr)
+    rust_spec_bin: Optional[str] = None
+    if spec_engine == "rust":
+        rust_spec_bin = resolve_rust_spec_binary(engines_dir)
+        if rust_spec_bin is None:
+            print("warning: gt7-spec-normalizer not found; falling back to python spec normalization", file=sys.stderr)
+    spec_mappings_dir = Path(__file__).resolve().parent / "mappings" / "spec_labels"
 
     carlist_url = f"{BASE_URL}/{path_locale}/gt7/carlist/"
     html = fetch_text(session, carlist_url, timeout)
@@ -871,7 +1106,7 @@ def run_scraper(
     desc_chunk_name = extract_chunk_name(
         index_js, rf"descriptions\.{re.escape(asset_locale)}-[A-Za-z0-9_-]+\.js"
     )
-    should_parse_descriptions = not use_playwright and not car_list_path
+    should_parse_descriptions = not use_playwright
     if desc_chunk_name and should_parse_descriptions:
         try:
             desc_chunk_url = resolve_asset_url(desc_chunk_name)
@@ -883,7 +1118,21 @@ def run_scraper(
             description_map = {}
 
     if use_playwright:
-        pw_thumbs = extract_list_thumbs_with_playwright(path_locale, timeout=timeout)
+        pw_thumbs: Dict[str, List[str]] = {}
+        if node_playwright_script is not None:
+            try:
+                pw_thumbs = extract_list_thumbs_with_node(
+                    script=node_playwright_script,
+                    locale=path_locale,
+                    timeout=timeout,
+                    workers=max(1, playwright_workers or workers or 1),
+                )
+            except Exception:
+                pw_thumbs = {}
+            if not pw_thumbs:
+                pw_thumbs = extract_list_thumbs_with_playwright(path_locale, timeout=timeout)
+        else:
+            pw_thumbs = extract_list_thumbs_with_playwright(path_locale, timeout=timeout)
         for key, urls in pw_thumbs.items():
             if urls:
                 thumb_map.setdefault(key, []).extend(urls)
@@ -928,7 +1177,7 @@ def run_scraper(
     pw_contexts: List[Dict[str, Any]] = []
     pw_lock = Lock()
     pw_pool: Optional[PlaywrightPool] = None
-    if use_playwright and playwright_workers > 0:
+    if use_playwright and node_playwright_script is None and playwright_workers > 0:
         pw_pool = PlaywrightPool(path_locale, timeout, playwright_workers)
 
     def get_session():
@@ -1003,9 +1252,89 @@ def run_scraper(
             intro = desc_item.get("hero") or intro
             detail = desc_item.get("desc") or detail
 
+        if download_images and len(hero_urls) <= 1:
+            try:
+                hero_from_assets = resolve_hero_urls_from_asset_modules(
+                    session=get_session(),
+                    index_js=index_js,
+                    car_id=car_id,
+                    timeout=timeout,
+                )
+            except Exception:
+                hero_from_assets = []
+            if hero_from_assets:
+                hero_urls = hero_from_assets
+
+        # Keep one stable HTTP-detail parse across all modes; Playwright can enrich afterward.
+        need_detail_fetch = (
+            download_images
+            or not intro
+            or not detail
+            or not specs
+            or len(hero_urls) <= 1
+        )
+        if need_detail_fetch:
+            try:
+                detail_url = f"{BASE_URL}/{path_locale}/gt7/carlist/id/{car_id}"
+                detail_html = fetch_text(get_session(), detail_url, timeout)
+                detail_data = parse_detail_html(detail_html, car_id)
+            except Exception:
+                detail_data = {}
+            if detail_data:
+                car_name = detail_data.get("name") or car_name
+                manufacturer_name = detail_data.get("manufacturer_name") or manufacturer_name
+                intro = intro or detail_data.get("intro")
+                detail = detail or detail_data.get("detail")
+                if detail_data.get("specs"):
+                    specs = detail_data.get("specs")
+                detail_heroes = detail_data.get("hero_images") or []
+                if len(detail_heroes) > len(hero_urls):
+                    hero_urls = detail_heroes
+
         if use_playwright:
             try:
-                if pw_pool is not None:
+                detail_data: Dict[str, Any] = {}
+                if node_playwright_script is not None:
+                    def fetch_python_playwright_detail() -> Dict[str, Any]:
+                        if pw_pool is not None:
+                            return pw_pool.fetch(car_id)
+                        page = get_playwright_page()
+                        if page is not None:
+                            return extract_detail_with_playwright_on_page(
+                                page, car_id, path_locale, timeout
+                            )
+                        return extract_detail_with_playwright(car_id, path_locale, timeout)
+
+                    try:
+                        detail_data = extract_detail_with_node(
+                            script=node_playwright_script,
+                            car_id=car_id,
+                            locale=path_locale,
+                            timeout=timeout,
+                            workers=max(1, playwright_workers or workers or 1),
+                        )
+                    except Exception:
+                        detail_data = {}
+                    node_heroes = detail_data.get("hero_images") if isinstance(detail_data, dict) else None
+                    node_hero_count = len(node_heroes) if isinstance(node_heroes, list) else 0
+                    node_low_quality = (not detail_data) or (not detail_data.get("detail")) or (node_hero_count <= 1)
+                    if node_low_quality:
+                        try:
+                            fallback_detail = fetch_python_playwright_detail()
+                        except Exception:
+                            fallback_detail = {}
+                        if fallback_detail:
+                            for key in ["name", "manufacturer_name", "intro", "detail", "specs"]:
+                                value = fallback_detail.get(key)
+                                if value and not detail_data.get(key):
+                                    detail_data[key] = value
+                            fb_heroes = fallback_detail.get("hero_images")
+                            if isinstance(fb_heroes, list) and len(fb_heroes) > node_hero_count:
+                                detail_data["hero_images"] = fb_heroes
+                            fb_thumbs = fallback_detail.get("thumb_images")
+                            if isinstance(fb_thumbs, list) and fb_thumbs:
+                                detail_data["thumb_images"] = fb_thumbs
+                elif pw_pool is not None:
                     detail_data = pw_pool.fetch(car_id)
                 else:
                     page = get_playwright_page()
@@ -1022,8 +1351,9 @@ def run_scraper(
                 detail = detail or detail_data.get("detail")
                 if detail_data.get("specs"):
                     specs = detail_data.get("specs")
-                if detail_data.get("hero_images"):
-                    hero_urls = detail_data.get("hero_images")
+                detail_heroes = detail_data.get("hero_images") or []
+                if len(detail_heroes) > len(hero_urls):
+                    hero_urls = detail_heroes
 
         hero_urls = [u for u in hero_urls if u and not u.startswith("data:")]
         thumb_urls = [u for u in thumb_urls if u and not u.startswith("data:")]
@@ -1041,10 +1371,44 @@ def run_scraper(
         aspiration_code = normalize_aspiration_code(aspiration_code or aspiration_raw, locale)
         aspiration_label = extract_aspiration_label(aspiration_raw)
 
-        session = get_session()
         logo_path = None
-        if download_images:
+        image_rows: List[Dict[str, str]] = []
+        if download_images and go_downloader_bin:
+            try:
+                logo_path, image_rows = build_assets_with_go_downloader(
+                    car_id=car_id,
+                    manufacturer_id=manufacturer_id,
+                    logo_url=logo_url,
+                    hero_urls=hero_urls or [],
+                    thumb_urls=thumb_urls or [],
+                    image_dir=image_dir,
+                    go_binary=go_downloader_bin,
+                    workers=download_workers,
+                    timeout=download_timeout,
+                    retries=download_retries,
+                )
+            except Exception:
+                session = get_session()
+                logo_path = build_logo(manufacturer_id, logo_url, image_dir, session, timeout)
+                image_rows = build_car_images(
+                    car_id,
+                    image_dir,
+                    hero_urls or [],
+                    thumb_urls or [],
+                    session,
+                    timeout,
+                )
+        elif download_images:
+            session = get_session()
             logo_path = build_logo(manufacturer_id, logo_url, image_dir, session, timeout)
+            image_rows = build_car_images(
+                car_id,
+                image_dir,
+                hero_urls or [],
+                thumb_urls or [],
+                session,
+                timeout,
+            )
 
         spec_pairs: List[Tuple[str, str]] = []
         if isinstance(specs, list):
@@ -1075,17 +1439,6 @@ def run_scraper(
             filtered_pairs.append((label, raw_value))
 
         spec_pairs = filtered_pairs
-
-        image_rows: List[Dict[str, str]] = []
-        if download_images:
-            image_rows = build_car_images(
-                car_id,
-                image_dir,
-                hero_urls or [],
-                thumb_urls or [],
-                session,
-                timeout,
-            )
 
         return {
             "car_id": car_id,
@@ -1132,6 +1485,8 @@ def run_scraper(
         car_ids = [cid for cid in car_ids if db.latest_status(conn, cid, locale) != "success"]
 
     executor_workers = max(1, int(workers or 1))
+    effective_commit_batch = max(1, int(commit_batch or 1))
+    pending_writes = 0
     futures = []
     with ThreadPoolExecutor(max_workers=executor_workers) as executor:
         for car_id in car_ids:
@@ -1176,7 +1531,18 @@ def run_scraper(
                     label = result["drivetrain"].get("label") or code
                     db.upsert_drivetrain(conn, code, locale, label, default_name=code)
 
-                spec_rows = normalize_specs(result["spec_pairs"], locale=locale)
+                if rust_spec_bin is not None:
+                    try:
+                        spec_rows = normalize_specs_with_rust(
+                            binary=rust_spec_bin,
+                            specs=result["spec_pairs"],
+                            locale=locale,
+                            mappings_dir=spec_mappings_dir,
+                        )
+                    except Exception:
+                        spec_rows = normalize_specs_py(result["spec_pairs"], locale=locale)
+                else:
+                    spec_rows = normalize_specs_py(result["spec_pairs"], locale=locale)
                 db.replace_specs(conn, car_id, spec_rows)
                 for spec in spec_rows:
                     if spec.get("spec_key") and spec.get("spec_label"):
@@ -1185,16 +1551,22 @@ def run_scraper(
                         if spec["spec_key"] not in seeded_codes:
                             db.upsert_spec_label(conn, spec["spec_key"], locale, spec["spec_label"])
                 if download_images:
-                    db.replace_images(conn, car_id, result["images"])
+                    image_rows = result["images"]
+                    if locale != base_path_locale:
+                        existing_rows = db.get_car_images(conn, car_id)
+                        image_rows = merge_image_rows_preserve_non_regression(existing_rows, image_rows)
+                    db.replace_images(conn, car_id, image_rows)
 
                 db.log_fetch(conn, car_id, locale, "success", "", datetime.utcnow().isoformat())
-                conn.commit()
             except Exception as exc:
                 if car_id is None:
                     car_id = "unknown"
                 db.log_fetch(conn, car_id, locale, "failed", str(exc), datetime.utcnow().isoformat())
-                conn.commit()
             finally:
+                pending_writes += 1
+                if pending_writes >= effective_commit_batch:
+                    conn.commit()
+                    pending_writes = 0
                 if show_progress and progress_bar:
                     progress_bar.update(1)
                 if progress_callback:
@@ -1204,6 +1576,9 @@ def run_scraper(
                 time.sleep(rate)
         if show_progress and progress_bar:
             progress_bar.close()
+
+    if pending_writes > 0:
+        conn.commit()
 
     # ensure TC+SC label uses TC/SC i18n if available
     existing_tc_sc = db.get_aspiration_label(conn, "TC+SC", locale)
@@ -1242,7 +1617,9 @@ def run_scraper(
         and scraped_count != site_total_count
     ):
         db.set_meta(conn, "status", "count_mismatch")
+        conn.close()
         return 2
 
     db.set_meta(conn, "status", "ok")
+    conn.close()
     return 0

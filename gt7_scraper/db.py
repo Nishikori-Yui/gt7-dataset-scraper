@@ -14,6 +14,14 @@ def connect_db(path: Path) -> sqlite3.Connection:
     return conn
 
 
+def configure_sqlite(conn: sqlite3.Connection, use_wal: bool = False) -> None:
+    conn.execute("PRAGMA foreign_keys = ON")
+    if use_wal:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+    conn.commit()
+
+
 def init_db(conn: sqlite3.Connection, create_images: bool = True) -> None:
     cur = conn.cursor()
     script = """
@@ -285,6 +293,33 @@ def upsert_car_text(conn: sqlite3.Connection, text: Dict[str, str]) -> None:
             text.get("detail"),
         ),
     )
+
+
+def prune_car_texts_except_locale(conn: sqlite3.Connection, locale: str) -> None:
+    conn.execute("DELETE FROM car_texts WHERE locale<>?", (locale,))
+    conn.commit()
+
+
+def get_car_images(conn: sqlite3.Connection, car_id: str) -> List[Dict[str, object]]:
+    try:
+        cur = conn.execute(
+            "SELECT image_path, sort_order, image_type FROM car_images WHERE car_id=?"
+            " ORDER BY CASE image_type WHEN 'hero' THEN 0 WHEN 'thumb' THEN 1 ELSE 2 END,"
+            " sort_order, id",
+            (car_id,),
+        )
+    except sqlite3.OperationalError:
+        return []
+    rows: List[Dict[str, object]] = []
+    for row in cur.fetchall():
+        rows.append(
+            {
+                "image_path": row["image_path"],
+                "sort_order": row["sort_order"],
+                "image_type": row["image_type"],
+            }
+        )
+    return rows
 
 
 def replace_images(conn: sqlite3.Connection, car_id: str, images: Iterable[Dict[str, str]]) -> None:
