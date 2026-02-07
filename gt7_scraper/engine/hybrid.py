@@ -28,6 +28,7 @@ def run_hybrid_scraper(
     download_workers: int = 32,
     download_timeout: int = 30,
     download_retries: int = 2,
+    catalog_engine: str = "go",
     playwright_engine: str = "node",
     spec_engine: str = "rust",
 ) -> int:
@@ -56,6 +57,7 @@ def run_hybrid_scraper(
         download_workers=max(1, int(download_workers or 1)),
         download_timeout=max(1, int(download_timeout or 1)),
         download_retries=max(0, int(download_retries or 0)),
+        catalog_engine=catalog_engine,
         playwright_engine=playwright_engine,
         spec_engine=spec_engine,
     )

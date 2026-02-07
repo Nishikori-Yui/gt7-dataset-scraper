@@ -24,6 +24,7 @@ from .parser import (
     parse_descriptions,
 )
 from .engine.downloader import resolve_downloader_binary, run_downloader_jobs
+from .engine.catalog_go import parse_detail_with_go, resolve_catalog_binary
 from .engine.playwright_node import (
     extract_detail_with_node,
     extract_list_thumbs_with_node,
@@ -1017,6 +1018,7 @@ def run_scraper(
     download_workers: int = 32,
     download_timeout: int = 30,
     download_retries: int = 2,
+    catalog_engine: str = "python",
     playwright_engine: str = "python",
     spec_engine: str = "python",
 ) -> int:
@@ -1042,6 +1044,11 @@ def run_scraper(
         if node_playwright_script is None:
             print("warning: gt7-playwright not found; falling back to python playwright", file=sys.stderr)
     rust_spec_bin: Optional[str] = None
+    go_catalog_bin: Optional[str] = None
+    if catalog_engine == "go":
+        go_catalog_bin = resolve_catalog_binary(engines_dir)
+        if go_catalog_bin is None:
+            print("warning: gt7-catalog-go not found; falling back to python catalog parser", file=sys.stderr)
     if spec_engine == "rust":
         rust_spec_bin = resolve_rust_spec_binary(engines_dir)
         if rust_spec_bin is None:
@@ -1186,6 +1193,18 @@ def run_scraper(
             session_local.session = build_session()
         return session_local.session
 
+    catalog_warning = {"shown": False}
+
+    def parse_detail_payload(detail_html: str, car_id: str) -> Dict[str, Any]:
+        if go_catalog_bin:
+            try:
+                return parse_detail_with_go(go_catalog_bin, detail_html, car_id)
+            except Exception as exc:
+                if not catalog_warning["shown"]:
+                    print(f"warning: gt7-catalog-go failed ({exc}); using python parser", file=sys.stderr)
+                    catalog_warning["shown"] = True
+        return parse_detail_html(detail_html, car_id)
+
     def get_playwright_page():
         if hasattr(pw_local, "page"):
             return pw_local.page
@@ -1278,7 +1297,7 @@ def run_scraper(
             try:
                 detail_url = f"{BASE_URL}/{path_locale}/gt7/carlist/id/{car_id}"
                 detail_html = fetch_text(get_session(), detail_url, timeout)
-                detail_data = parse_detail_html(detail_html, car_id)
+                detail_data = parse_detail_payload(detail_html, car_id)
             except Exception:
                 detail_data = {}
             if detail_data:

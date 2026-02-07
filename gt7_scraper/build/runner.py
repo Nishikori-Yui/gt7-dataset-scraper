@@ -90,6 +90,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--download-timeout", type=int, default=30, help="Downloader timeout seconds")
     parser.add_argument("--download-retries", type=int, default=2, help="Downloader retries")
     parser.add_argument(
+        "--catalog-engine",
+        choices=["python", "go"],
+        default="",
+        help="Catalog/detail parser backend (default: python engine=python, go engine=hybrid)",
+    )
+    parser.add_argument(
         "--playwright-engine",
         choices=["python", "node"],
         default="",
@@ -226,6 +232,7 @@ def run(args: argparse.Namespace) -> None:
         requested_policy=args.playwright_policy,
         requested_engine=args.playwright_engine,
     )
+    catalog_engine = args.catalog_engine or ("go" if args.engine == "hybrid" else "python")
     spec_engine = args.spec_engine or ("rust" if args.engine == "hybrid" else "python")
     commit_batch = args.commit_batch if args.commit_batch > 0 else (50 if args.engine == "hybrid" else 1)
     sqlite_wal = args.sqlite_wal if args.sqlite_wal is not None else (args.engine == "hybrid")
@@ -270,6 +277,7 @@ def run(args: argparse.Namespace) -> None:
             download_workers=args.download_workers,
             download_timeout=args.download_timeout,
             download_retries=args.download_retries,
+            catalog_engine=catalog_engine,
             playwright_engine=playwright_engine,
             spec_engine=spec_engine,
         )

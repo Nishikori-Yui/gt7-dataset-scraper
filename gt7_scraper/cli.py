@@ -94,6 +94,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Downloader retries for hybrid engine (default: 2)",
     )
     parser.add_argument(
+        "--catalog-engine",
+        choices=["python", "go"],
+        default="",
+        help="Catalog/detail parser backend (default: python engine=python, go engine=hybrid)",
+    )
+    parser.add_argument(
         "--playwright-engine",
         choices=["python", "node"],
         default="",
@@ -142,6 +148,7 @@ def main() -> None:
 
     commit_batch = args.commit_batch if args.commit_batch > 0 else (50 if args.engine == "hybrid" else 1)
     sqlite_wal = args.sqlite_wal if args.sqlite_wal is not None else (args.engine == "hybrid")
+    catalog_engine = args.catalog_engine or ("go" if args.engine == "hybrid" else "python")
     playwright_engine = args.playwright_engine or ("node" if args.engine == "hybrid" else "python")
     spec_engine = args.spec_engine or ("rust" if args.engine == "hybrid" else "python")
 
@@ -166,6 +173,7 @@ def main() -> None:
         download_workers=args.download_workers,
         download_timeout=args.download_timeout,
         download_retries=args.download_retries,
+        catalog_engine=catalog_engine,
         playwright_engine=playwright_engine,
         spec_engine=spec_engine,
     )
