@@ -26,10 +26,10 @@ from .merge_sql import merge_locale_dbs
 from .progress import TotalProgress
 
 
-def prune_texts_for_locale(db_path: Path, locale: str) -> None:
+def prune_locale_payload_for_locale(db_path: Path, locale: str) -> None:
     conn = db_utils.connect_db(db_path)
     try:
-        db_utils.prune_car_texts_except_locale(conn, locale)
+        db_utils.prune_locale_rows_except_locale(conn, locale)
     finally:
         conn.close()
 
@@ -117,7 +117,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--text-policy",
         choices=["target-only", "keep-base-and-target"],
         default="target-only",
-        help="Per-locale car_texts retention policy",
+        help="Per-locale locale-scoped data retention policy",
     )
     parser.add_argument(
         "--hero-check",
@@ -314,7 +314,7 @@ def run(args: argparse.Namespace) -> None:
                         resume=args.resume,
                     )
                 if args.text_policy == "target-only":
-                    prune_texts_for_locale(db_path, locale)
+                    prune_locale_payload_for_locale(db_path, locale)
                 per_locale_dbs.append(db_path)
             template_db.unlink(missing_ok=True)
 

@@ -105,6 +105,13 @@ def merge_locale(conn: sqlite3.Connection, locale: str, src_db: Path, include_fe
             (locale,),
         )
 
+        conn.execute("DELETE FROM country_i18n WHERE locale=?", (locale,))
+        conn.execute(
+            "INSERT INTO country_i18n(iso3, locale, name) "
+            "SELECT iso3, locale, name FROM src.country_i18n WHERE locale=?",
+            (locale,),
+        )
+
         conn.execute("DELETE FROM car_texts WHERE locale=?", (locale,))
         conn.execute(
             "INSERT INTO car_texts(car_id, locale, name, intro, detail) "

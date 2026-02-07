@@ -43,6 +43,8 @@
 
 ## `build_dbs.py` 模式
 
+`--text-policy target-only` 会让单语言库保持 locale 范围的数据：对所有带 `locale` 字段的本地化表清理非目标语言行（例如：`car_texts`、`car_specs`、`manufacturer_i18n`、`spec_code_i18n`、`country_i18n`、`fetch_log`）。
+
 命令基础参数：
 ```bash
 ./.venv/bin/python scripts/build_dbs.py \

@@ -1,4 +1,4 @@
-from .images import get_car_images, prune_car_texts_except_locale, replace_images
+from .images import get_car_images, prune_car_texts_except_locale, prune_locale_rows_except_locale, replace_images
 from .meta import (
     count_cars,
     get_meta,
@@ -43,6 +43,7 @@ __all__ = [
     "replace_specs",
     "upsert_car_text",
     "prune_car_texts_except_locale",
+    "prune_locale_rows_except_locale",
     "get_car_images",
     "replace_images",
     "log_fetch",

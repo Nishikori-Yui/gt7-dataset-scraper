@@ -7,6 +7,22 @@ def prune_car_texts_except_locale(conn: sqlite3.Connection, locale: str) -> None
     conn.commit()
 
 
+def prune_locale_rows_except_locale(conn: sqlite3.Connection, locale: str) -> None:
+    tables = (
+        "manufacturer_i18n",
+        "aspiration_i18n",
+        "drivetrain_i18n",
+        "spec_code_i18n",
+        "car_texts",
+        "car_specs",
+        "country_i18n",
+        "fetch_log",
+    )
+    for table in tables:
+        conn.execute(f"DELETE FROM {table} WHERE locale<>?", (locale,))
+    conn.commit()
+
+
 def get_car_images(conn: sqlite3.Connection, car_id: str) -> List[Dict[str, object]]:
     try:
         cur = conn.execute(

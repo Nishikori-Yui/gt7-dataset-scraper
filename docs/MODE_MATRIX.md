@@ -43,6 +43,8 @@ Duration comparison (same 10-car run, seconds):
 
 ## `build_dbs.py` Modes
 
+`--text-policy target-only` keeps per-locale DBs locale-scoped by pruning non-target rows in locale-keyed tables (for example: `car_texts`, `car_specs`, `manufacturer_i18n`, `spec_code_i18n`, `country_i18n`, `fetch_log`).
+
 Command base:
 ```bash
 ./.venv/bin/python scripts/build_dbs.py \

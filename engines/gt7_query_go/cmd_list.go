@@ -77,10 +77,11 @@ func cmdList(args []string) {
 }
 
 func listBySpecSort(db *sql.DB, locale string, sortBy string, limit int) {
-	rows, err := db.Query(`SELECT c.id, COALESCE(ct.name,c.name) AS name, s.spec_value
+	rows, err := db.Query(`SELECT c.id, COALESCE(ct.name,c.name) AS name, COALESCE(sl.spec_value, sgb.spec_value) AS spec_value
 		FROM cars c
 		LEFT JOIN car_texts ct ON ct.car_id=c.id AND ct.locale=?
-		LEFT JOIN car_specs s ON s.car_id=c.id AND s.locale='gb' AND s.spec_key=?`, locale, sortBy)
+		LEFT JOIN car_specs sl ON sl.car_id=c.id AND sl.locale=? AND sl.spec_key=?
+		LEFT JOIN car_specs sgb ON sgb.car_id=c.id AND sgb.locale='gb' AND sgb.spec_key=?`, locale, locale, sortBy, sortBy)
 	if err != nil {
 		fail(err)
 	}

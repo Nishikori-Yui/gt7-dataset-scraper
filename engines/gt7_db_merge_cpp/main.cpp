@@ -170,6 +170,11 @@ void merge_locale(sqlite3* db, const std::string& locale, const fs::path& src_db
              "INSERT INTO spec_code_i18n(code, locale, label) "
              "SELECT code, locale, label FROM src.spec_code_i18n WHERE locale=" + locale_q);
 
+    exec_sql(db, "DELETE FROM country_i18n WHERE locale=" + locale_q);
+    exec_sql(db,
+             "INSERT INTO country_i18n(iso3, locale, name) "
+             "SELECT iso3, locale, name FROM src.country_i18n WHERE locale=" + locale_q);
+
     exec_sql(db, "DELETE FROM car_texts WHERE locale=" + locale_q);
     exec_sql(db,
              "INSERT INTO car_texts(car_id, locale, name, intro, detail) "

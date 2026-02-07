@@ -129,12 +129,13 @@ def list_sorted_by_spec(db_path: Path, locale: str, spec_key: str, limit: int, d
     conn = connect_db(db_path)
     try:
         query = (
-            "SELECT c.id, {name} AS name, s.spec_value AS spec_value "
+            "SELECT c.id, {name} AS name, COALESCE(sl.spec_value, sgb.spec_value) AS spec_value "
             "FROM cars c "
             "LEFT JOIN car_texts ct ON ct.car_id=c.id AND ct.locale=? "
-            "LEFT JOIN car_specs s ON s.car_id=c.id AND s.locale=? AND s.spec_key=?"
+            "LEFT JOIN car_specs sl ON sl.car_id=c.id AND sl.locale=? AND sl.spec_key=? "
+            "LEFT JOIN car_specs sgb ON sgb.car_id=c.id AND sgb.locale='gb' AND sgb.spec_key=?"
         ).format(name=car_name_expr())
-        rows = conn.execute(query, (locale, "gb", spec_key)).fetchall()
+        rows = conn.execute(query, (locale, locale, spec_key, spec_key)).fetchall()
         enriched = []
         for row in rows:
             num = parse_number(row["spec_value"])

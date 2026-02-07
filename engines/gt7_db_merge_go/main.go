@@ -144,6 +144,12 @@ func mergeLocale(db *sql.DB, locale, srcPath string, includeFetchLog bool) error
 	if err := exec(db, "INSERT INTO spec_code_i18n(code, locale, label) SELECT code, locale, label FROM src.spec_code_i18n WHERE locale=?", locale); err != nil {
 		return rollback(err)
 	}
+	if err := exec(db, "DELETE FROM country_i18n WHERE locale=?", locale); err != nil {
+		return rollback(err)
+	}
+	if err := exec(db, "INSERT INTO country_i18n(iso3, locale, name) SELECT iso3, locale, name FROM src.country_i18n WHERE locale=?", locale); err != nil {
+		return rollback(err)
+	}
 	if err := exec(db, "DELETE FROM car_texts WHERE locale=?", locale); err != nil {
 		return rollback(err)
 	}
