@@ -6,11 +6,11 @@
 
 ## CLI
 后端选项（全局）：
-- `--query-engine python|go`（默认：`python`）
+- `--query-engine auto|python|go`（默认：`auto`）
 - `--query-go-bin ./local/bin/gt7-query-go`
-- 若 Go 后端缺失或执行失败，CLI 会给出 warning 并自动回退到 Python 后端。
-- 当前已验证的 Go 范围：`list`（不含 `max_power`/`weight`）、`stats`、`overview`。
-- `car` 与 `list --sort max_power|weight` 当前会有意回退到 Python 后端。
+- `auto` 路由规则：`list(manufacturer|country|drivetrain)`、`stats`、`overview` 走 Go；`car` 与 `list --sort max_power|weight` 走 Python。
+- 当 Go 路径上的二进制缺失或执行失败时，CLI 会给出 warning 并自动回退到 Python 后端。
+- 迁移阶段仍保留 Python 后端以兼容历史用法。
 
 ### 列表（仅 id + name）
 ```bash

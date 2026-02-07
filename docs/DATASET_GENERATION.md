@@ -106,10 +106,10 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--hero-manifest` (build_dbs): expected hero-count manifest (default `./gt7_scraper/mappings/hero_expected_counts.json`)
 - `--reference-images-dir` (build_dbs): deprecated in build flow; use only with manifest generator script
 - `--combined-mode rescrape|merge` (build_dbs): combined DB strategy (`rescrape` is default for backward compatibility)
-- `--merge-engine python|cpp|go` (build_dbs): merge backend when `--combined-mode=merge`
+- `--merge-engine python|cpp|go` (build_dbs): merge backend when `--combined-mode=merge` (default: `go`)
 - `--merge-cpp-bin` (build_dbs): C++ merge binary path (default `./local/bin/gt7-db-merge`)
 - `--merge-go-bin` (build_dbs): Go merge binary path (default `./local/bin/gt7-db-merge-go`)
-- `--hero-check-engine python|rust` (build_dbs): hero validation backend (default `python`)
+- `--hero-check-engine python|rust` (build_dbs): hero validation backend (default `rust`)
 - `--hero-check-rust-bin` (build_dbs): Rust hero-check binary path (default `./local/bin/gt7-hero-check`)
 
 For `scripts/build_dbs.py`, global `Total` progress uses the final planned car count after `--limit`, `--car-list`, and `--resume` are applied.

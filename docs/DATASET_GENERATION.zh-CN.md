@@ -107,10 +107,10 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--hero-manifest`（build_dbs）：hero 期望数量清单（默认 `./gt7_scraper/mappings/hero_expected_counts.json`）
 - `--reference-images-dir`（build_dbs）：构建流程中已废弃，仅用于清单生成脚本
 - `--combined-mode rescrape|merge`（build_dbs）：汇总库生成策略（默认 `rescrape`，保持兼容）
-- `--merge-engine python|cpp|go`（build_dbs）：`--combined-mode=merge` 时的合并后端
+- `--merge-engine python|cpp|go`（build_dbs）：`--combined-mode=merge` 时的合并后端（默认：`go`）
 - `--merge-cpp-bin`（build_dbs）：C++ 合并二进制路径（默认 `./local/bin/gt7-db-merge`）
 - `--merge-go-bin`（build_dbs）：Go 合并二进制路径（默认 `./local/bin/gt7-db-merge-go`）
-- `--hero-check-engine python|rust`（build_dbs）：Hero 校验后端（默认 `python`）
+- `--hero-check-engine python|rust`（build_dbs）：Hero 校验后端（默认 `rust`）
 - `--hero-check-rust-bin`（build_dbs）：Rust Hero 校验二进制路径（默认 `./local/bin/gt7-hero-check`）
 
 对 `scripts/build_dbs.py` 而言，全局 `Total` 进度分母基于最终计划处理量（已应用 `--limit`、`--car-list`、`--resume`）。

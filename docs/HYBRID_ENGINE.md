@@ -153,9 +153,10 @@ python scripts/build_dbs.py \
 `scripts/build_dbs.py` combined DB strategies:
 - `--combined-mode rescrape` (default): legacy behavior, run all locales directly into `gt7.db`
 - `--combined-mode merge`: build `gt7.<locale>.db` first, then merge
-- `--merge-engine python|cpp|go`: merge backend when `combined-mode=merge`
+- `--merge-engine python|cpp|go`: merge backend when `combined-mode=merge` (default: `go`)
 - `--merge-cpp-bin`: C++ merge binary path (default `./local/bin/gt7-db-merge`)
 - `--merge-go-bin`: Go merge binary path (default `./local/bin/gt7-db-merge-go`)
+- `--hero-check-engine python|rust`: hero-check backend (default: `rust`)
 
 Example (`merge + cpp`, auto-fallback to Python SQL merge on failure):
 ```bash
@@ -202,7 +203,7 @@ python -m gt7_scraper \
   - `--combined-mode merge --merge-engine go` uses Go merge binary when found.
   - If missing or failed, build flow falls back to Python SQL merge.
 - Hero validation:
-  - `--hero-check-engine rust` uses Rust hero-check binary when found.
+  - `--hero-check-engine rust` uses Rust hero-check binary when found (default behavior).
   - If missing or failed, build flow falls back to Python hero-check.
 
 ## Validation Checklist

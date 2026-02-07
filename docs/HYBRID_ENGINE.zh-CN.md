@@ -153,9 +153,10 @@ python scripts/build_dbs.py \
 `scripts/build_dbs.py` 的汇总库生成策略：
 - `--combined-mode rescrape`（默认）：保持旧行为，逐语言直接写入 `gt7.db`
 - `--combined-mode merge`：先生成 `gt7.<locale>.db`，再合并
-- `--merge-engine python|cpp|go`：当 `combined-mode=merge` 时的合并后端
+- `--merge-engine python|cpp|go`：当 `combined-mode=merge` 时的合并后端（默认：`go`）
 - `--merge-cpp-bin`：C++ 合并二进制路径（默认 `./local/bin/gt7-db-merge`）
 - `--merge-go-bin`：Go 合并二进制路径（默认 `./local/bin/gt7-db-merge-go`）
+- `--hero-check-engine python|rust`：Hero 校验后端（默认：`rust`）
 
 示例（`merge + cpp`，失败自动回退 Python SQL 合并）：
 ```bash
@@ -202,7 +203,7 @@ python -m gt7_scraper \
   - `--combined-mode merge --merge-engine go` 时优先使用 Go 合并；
   - 若二进制缺失或失败，自动回退 Python SQL 合并。
 - Hero 校验：
-  - `--hero-check-engine rust` 时优先使用 Rust Hero 校验引擎；
+  - `--hero-check-engine rust` 时优先使用 Rust Hero 校验引擎（默认行为）；
   - 若二进制缺失或失败，自动回退 Python Hero 校验逻辑。
 
 ## 验证清单
