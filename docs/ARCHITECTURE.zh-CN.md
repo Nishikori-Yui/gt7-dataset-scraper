@@ -11,19 +11,48 @@
 
 ## 目录结构（概览）
 - `gt7_scraper/`：抓取 GT7 官方车辆目录数据，写入 SQLite（并可选下载图片）
+- `gt7_scraper/build/`：`scripts/build_dbs.py` 的构建编排（进度、合并、hero 校验）
 - `gt7_query/`：读取 SQLite，提供 CLI + Python API
+- `engines/`：可选的非 Python 加速组件（`gt7_downloader`、`gt7_spec_normalizer`、`gt7_playwright`、`gt7_db_merge_cpp`、`gt7_db_merge_go`、`gt7_hero_check_rust`、`gt7_query_go`、`gt7db_launcher_dotnet`）
 - `docs/`：流程、Schema、发布与合规说明
 - `output/`：默认运行输出目录（已在 gitignore 中忽略）
 
 ## 执行模式
-- `--engine python`：当前基线实现。
-- `--engine hybrid`：第一阶段优化路径；当前先启用 SQLite WAL 与批量提交，数据语义保持不变。
+- `--engine python`：最小依赖的基线实现。
+- `--engine hybrid`：推荐模式；在保持 schema/CLI 语义不变的前提下，把热点路径交给 Go/Rust/Node 与 SQL/C++ 合并后端。
+
+## 语言选型（项目定位）
+本项目定位为学习/实验仓库。虽然核心能力可以由纯 Python 完成，但这里刻意使用多语言来验证不同技术路径：
+- Python：总编排、CLI 兼容层、回退策略、快速迭代
+- SQL（SQLite 下推）：集合化合并与校验，减少 Python 行循环
+- Go：并发图片下载链路 + 可选数据库合并/查询后端（I/O 吞吐高，静态二进制易分发）
+- Rust：spec 归一化热点路径 + 可选 Hero 校验后端（确定性、类型约束更强）
+- Node/Playwright：静态资源不足时的浏览器回退提取
+- C++（SQLite C API）：`gt7.<locale>.db -> gt7.db` 的可选高性能合并引擎
+- C#/.NET：可选 `gt7db` 统一入口（封装 Python Core 命令）
+
+约束原则：
+- 默认行为保持兼容
+- 所有非 Python 路径都必须有 Python/SQL 回退路径
 
 ## 架构总览
 ```mermaid
 flowchart LR
-  U["用户 CLI\npython -m gt7_scraper / gt7_query"] --> S["gt7_scraper\n(获取 + 解析 + 规范化)"]
-  S --> DB["SQLite\noutput/gt7.db"]
+  U["用户 CLI\npython -m gt7_scraper / gt7_query"] --> S["Python 编排层\n(gt7_scraper + gt7_scraper/build)"]
+  S --> GO["Go 下载器\n(可选)"]
+  S --> RS["Rust 归一化\n(可选)"]
+  S --> PW["Node/Python Playwright\n(可选回退)"]
+  S --> SQL["SQLite SQL 合并\n(默认)"]
+  S --> CPP["C++ SQLite 合并\n(可选加速)"]
+  S --> MG["Go SQLite 合并\n(可选加速)"]
+  S --> RH["Rust Hero 校验\n(可选加速)"]
+  GO --> DB["SQLite\noutput/gt7.db / gt7.<locale>.db"]
+  RS --> DB
+  PW --> DB
+  SQL --> DB
+  CPP --> DB
+  MG --> DB
+  RH --> DB
   S --> IMG["图片（可选）\noutput/images/"]
   Q["gt7_query\n(读取 + 联结 + 格式化输出)"] --> DB
   U --> Q
@@ -84,16 +113,28 @@ flowchart TB
 
 ### URL 语言码与资源语言码
 部分语言在 URL 路径与资源文件名中使用的语言码不同。爬虫会自动处理（见
-`gt7_scraper/scraper.py:resolve_locales`），例如用户侧 locale 为 `br`，资源侧可能为 `bp`。
+`gt7_scraper/scraper_run.py:resolve_locales`），例如用户侧 locale 为 `br`，资源侧可能为 `bp`。
 
 ## 并发、可重复运行与恢复
 - 并发由 `--workers` 控制，使用线程池按车辆粒度并发处理。
 - `--resume` 会基于 `fetch_log` 中的 `success` 记录跳过已成功抓取的车辆（按 locale 区分）。
 - 写入采用 upsert/replace 风格，多次运行同一语言是安全的，也可用于更新数据。
 
+## `build_dbs` 流程（单语言库 + 汇总库）
+`scripts/build_dbs.py` 现在支持两种汇总库生成策略：
+- `--combined-mode rescrape`（默认）：保持历史行为，逐语言直接写入 `gt7.db`
+- `--combined-mode merge`：先生成 `gt7.<locale>.db`，再通过 `--merge-engine python|cpp|go` 合并成 `gt7.db`
+
+兼容性约束：
+- 默认仍是 `rescrape`
+- `merge` 为显式选择
+- `cpp/go` 合并失败时会自动回退到 Python SQL 合并
+- `--hero-check-engine rust` 失败时会自动回退到 Python Hero 校验
+
 ## 可观测性与完整性校验
 - `fetch_log` 记录每辆车、每种语言的抓取状态与错误信息。
 - `meta` 记录官方总数、已抓取总数、整体状态等。
+- 在 `scripts/build_dbs.py` 中，全局 `Total` 进度分母基于最终计划处理量（已应用 `limit/car-list/resume`），不再依赖页面正则估算。
 - 若未限制抓取规模（`--limit 0`）且抓取总数与官方总数不一致，会返回退出码 `2`，
   并写入 `meta.status = count_mismatch`。
 

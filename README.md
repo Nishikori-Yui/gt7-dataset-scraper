@@ -19,6 +19,11 @@ source .venv/bin/activate
 python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images ./output/images --skip-images
 ```
 
+Optional unified launcher (if built): 
+```bash
+./local/bin/gt7db scrape --engine hybrid --locale gb --db ./output/gt7.db --images ./output/images --skip-images
+```
+
 ## Install Dependencies (Pure Python)
 One-command bootstrap (recommended):
 ```bash
@@ -45,15 +50,29 @@ Common options:
 - `--no-system-install`: only set up `.venv` and build local engines
 - `--skip-playwright-browser`: skip Chromium download for Playwright
 - `--skip-build`: only install/check toolchain and Python dependencies
+- `--skip-dotnet-build`: skip building the optional `gt7db` dotnet launcher
 
 Manual setup details are in [docs/HYBRID_ENGINE.md](docs/HYBRID_ENGINE.md). Pure Python usage is in [docs/DATASET_GENERATION.md](docs/DATASET_GENERATION.md).
 
+## Optional Packaging (`gt7db` Lite/Full)
+Create redistributable bundles:
+```bash
+./scripts/package_gt7db.sh --flavor lite
+./scripts/package_gt7db.sh --flavor full
+```
+
+Common options:
+- `--runtime <rid>`: set dotnet runtime id manually (for example `osx-arm64`, `linux-x64`)
+- `--skip-build`: package current local artifacts only
+- `--dist-dir <path>`: custom output directory
+
 ## Recommended Mode
 - Use `--engine hybrid` as the default mode for production runs.
-- Validated smoke runs show `hybrid_no_pw_rust` is faster than pure Python (`72s` vs `78s` on the same 10-car sample), while keeping the same data quality baseline.
+- Validated smoke runs show `hybrid_no_pw_rust` is faster than pure Python (`81.417s` vs `150.456s` on the same 10-car sample), while keeping the same data quality baseline.
 - Enable Playwright only when browser fallback is explicitly needed, because it is much slower.
 - Keep `--engine python` as the minimal-dependency fallback mode.
 - See [docs/MODE_MATRIX.md](docs/MODE_MATRIX.md) for measured comparisons and [docs/HYBRID_ENGINE.md](docs/HYBRID_ENGINE.md) for dependency setup.
+- This repository is also a learning/experiment codebase: pure Python is possible, but selected components intentionally use Go/Rust/Node/C++/SQL where they fit better (details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
 ## Documentation
 - Dataset generation: [docs/DATASET_GENERATION.md](docs/DATASET_GENERATION.md)

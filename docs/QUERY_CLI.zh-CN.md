@@ -5,6 +5,12 @@
 本文说明 `gt7_query` 的使用方式。默认假设数据库由 `gt7_scraper` 生成（见 `DATASET_GENERATION.zh-CN.md`）。
 
 ## CLI
+后端选项（全局）：
+- `--query-engine python|go`（默认：`python`）
+- `--query-go-bin ./local/bin/gt7-query-go`
+- 若 Go 后端缺失或执行失败，CLI 会给出 warning 并自动回退到 Python 后端。
+- 当前已验证的 Go 范围：`list`（不含 `max_power`/`weight`）、`stats`、`overview`。
+- `car` 与 `list --sort max_power|weight` 当前会有意回退到 Python 后端。
 
 ### 列表（仅 id + name）
 ```bash
@@ -65,6 +71,11 @@ python -m gt7_query stats --db output/gt7.db --locale gb --by country
 ### 概览
 ```bash
 python -m gt7_query overview --db output/gt7.db
+```
+
+Go 后端示例：
+```bash
+python -m gt7_query --query-engine go --query-go-bin ./local/bin/gt7-query-go list --db output/gt7.db --locale gb --sort manufacturer --limit 5
 ```
 
 ## Python API

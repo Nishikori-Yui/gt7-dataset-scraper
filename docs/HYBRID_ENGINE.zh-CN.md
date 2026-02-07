@@ -14,6 +14,7 @@
 - Go 下载器：`engines/gt7_downloader`
 - Node/Playwright Worker：`engines/gt7_playwright`
 - Rust 规格归一化器：`engines/gt7_spec_normalizer`
+- C++ 合并引擎（可选）：`engines/gt7_db_merge_cpp`
 
 Python 爬虫仍作为编排层，SQLite schema 不变。
 
@@ -33,6 +34,7 @@ Python 爬虫仍作为编排层，SQLite schema 不变。
 - `--no-system-install`：仅做 venv 与本地组件构建
 - `--skip-playwright-browser`：跳过 `npx playwright install chromium`
 - `--skip-build`：只安装/检查工具链与 Python 依赖
+- `--skip-cpp-merge-build`：跳过构建 `local/bin/gt7-db-merge`
 
 macOS（Homebrew）：
 ```bash
@@ -102,6 +104,12 @@ cargo build --release
 cp target/release/gt7-spec-normalizer ../../local/bin/
 ```
 
+### 4) C++ 合并引擎（可选）
+```bash
+cd engines/gt7_db_merge_cpp
+./build.sh
+```
+
 ## 运行示例
 ```bash
 python -m gt7_scraper \
@@ -142,6 +150,26 @@ python scripts/build_dbs.py \
   --engines-dir ./local/bin
 ```
 
+`scripts/build_dbs.py` 的汇总库生成策略：
+- `--combined-mode rescrape`（默认）：保持旧行为，逐语言直接写入 `gt7.db`
+- `--combined-mode merge`：先生成 `gt7.<locale>.db`，再合并
+- `--merge-engine python|cpp|go`：当 `combined-mode=merge` 时的合并后端
+- `--merge-cpp-bin`：C++ 合并二进制路径（默认 `./local/bin/gt7-db-merge`）
+- `--merge-go-bin`：Go 合并二进制路径（默认 `./local/bin/gt7-db-merge-go`）
+
+示例（`merge + cpp`，失败自动回退 Python SQL 合并）：
+```bash
+python scripts/build_dbs.py \
+  --engine hybrid \
+  --locales gb,us,cn,jp \
+  --base-locale gb \
+  --combined-mode merge \
+  --merge-engine cpp \
+  --merge-cpp-bin ./local/bin/gt7-db-merge \
+  --playwright-policy off \
+  --engines-dir ./local/bin
+```
+
 构建流程默认使用 hero 清单。若要从本地 reference 图片重新生成：
 ```bash
 python scripts/generate_hero_manifest.py \
@@ -169,6 +197,13 @@ python -m gt7_scraper \
 - 规格归一化：
   - `--spec-engine rust` 会优先使用 Rust 二进制。
   - 若二进制缺失或执行失败，自动回退到 Python 归一化逻辑。
+- 汇总合并：
+  - `--combined-mode merge --merge-engine cpp` 时优先使用 C++ 合并；
+  - `--combined-mode merge --merge-engine go` 时优先使用 Go 合并；
+  - 若二进制缺失或失败，自动回退 Python SQL 合并。
+- Hero 校验：
+  - `--hero-check-engine rust` 时优先使用 Rust Hero 校验引擎；
+  - 若二进制缺失或失败，自动回退 Python Hero 校验逻辑。
 
 ## 验证清单
 - CLI 参数检查：
@@ -187,4 +222,14 @@ node --check engines/gt7_playwright/dist/cli.js
 - Rust 构建检查：
 ```bash
 cd engines/gt7_spec_normalizer && cargo build --release
+cd engines/gt7_hero_check_rust && cargo build --release
+cd engines/gt7_query_go && go build -o ../../local/bin/gt7-query-go .
+cd engines/gt7_db_merge_go && go build -o ../../local/bin/gt7-db-merge-go .
+```
+
+## 可选打包
+可生成带统一入口的可分发包：
+```bash
+./scripts/package_gt7db.sh --flavor lite
+./scripts/package_gt7db.sh --flavor full
 ```

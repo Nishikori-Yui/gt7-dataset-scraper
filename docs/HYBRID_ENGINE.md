@@ -14,6 +14,7 @@ For validated smoke-test commands and results across modes, see [MODE_MATRIX.md]
 - Go downloader: `engines/gt7_downloader`
 - Node/Playwright worker: `engines/gt7_playwright`
 - Rust spec normalizer: `engines/gt7_spec_normalizer`
+- C++ merge engine (optional): `engines/gt7_db_merge_cpp`
 
 The Python scraper remains the orchestrator and keeps the same SQLite schema.
 
@@ -33,6 +34,7 @@ Options:
 - `--no-system-install`: only set up venv + build local components
 - `--skip-playwright-browser`: skip `npx playwright install chromium`
 - `--skip-build`: only install/check toolchain and Python dependencies
+- `--skip-cpp-merge-build`: skip building `local/bin/gt7-db-merge`
 
 macOS (Homebrew):
 ```bash
@@ -102,6 +104,12 @@ cargo build --release
 cp target/release/gt7-spec-normalizer ../../local/bin/
 ```
 
+### 4) C++ merge engine (optional)
+```bash
+cd engines/gt7_db_merge_cpp
+./build.sh
+```
+
 ## Run Hybrid
 ```bash
 python -m gt7_scraper \
@@ -142,6 +150,26 @@ python scripts/build_dbs.py \
   --engines-dir ./local/bin
 ```
 
+`scripts/build_dbs.py` combined DB strategies:
+- `--combined-mode rescrape` (default): legacy behavior, run all locales directly into `gt7.db`
+- `--combined-mode merge`: build `gt7.<locale>.db` first, then merge
+- `--merge-engine python|cpp|go`: merge backend when `combined-mode=merge`
+- `--merge-cpp-bin`: C++ merge binary path (default `./local/bin/gt7-db-merge`)
+- `--merge-go-bin`: Go merge binary path (default `./local/bin/gt7-db-merge-go`)
+
+Example (`merge + cpp`, auto-fallback to Python SQL merge on failure):
+```bash
+python scripts/build_dbs.py \
+  --engine hybrid \
+  --locales gb,us,cn,jp \
+  --base-locale gb \
+  --combined-mode merge \
+  --merge-engine cpp \
+  --merge-cpp-bin ./local/bin/gt7-db-merge \
+  --playwright-policy off \
+  --engines-dir ./local/bin
+```
+
 Build flow uses a hero manifest by default. To regenerate it from local reference images:
 ```bash
 python scripts/generate_hero_manifest.py \
@@ -169,6 +197,13 @@ python -m gt7_scraper \
 - Spec normalization:
   - `--spec-engine rust` uses Rust binary when found.
   - If missing or failed, scraper falls back to Python normalization.
+- Combined merge:
+  - `--combined-mode merge --merge-engine cpp` uses C++ merge binary when found.
+  - `--combined-mode merge --merge-engine go` uses Go merge binary when found.
+  - If missing or failed, build flow falls back to Python SQL merge.
+- Hero validation:
+  - `--hero-check-engine rust` uses Rust hero-check binary when found.
+  - If missing or failed, build flow falls back to Python hero-check.
 
 ## Validation Checklist
 - CLI flags:
@@ -187,4 +222,14 @@ node --check engines/gt7_playwright/dist/cli.js
 - Rust build check:
 ```bash
 cd engines/gt7_spec_normalizer && cargo build --release
+cd engines/gt7_hero_check_rust && cargo build --release
+cd engines/gt7_query_go && go build -o ../../local/bin/gt7-query-go .
+cd engines/gt7_db_merge_go && go build -o ../../local/bin/gt7-db-merge-go .
+```
+
+## Optional Bundling
+Build redistributable bundles with unified launcher:
+```bash
+./scripts/package_gt7db.sh --flavor lite
+./scripts/package_gt7db.sh --flavor full
 ```

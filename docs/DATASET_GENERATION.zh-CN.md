@@ -106,6 +106,15 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--hero-soft-max-count`（build_dbs）：soft 模式数量阈值（默认 `20`）
 - `--hero-manifest`（build_dbs）：hero 期望数量清单（默认 `./gt7_scraper/mappings/hero_expected_counts.json`）
 - `--reference-images-dir`（build_dbs）：构建流程中已废弃，仅用于清单生成脚本
+- `--combined-mode rescrape|merge`（build_dbs）：汇总库生成策略（默认 `rescrape`，保持兼容）
+- `--merge-engine python|cpp|go`（build_dbs）：`--combined-mode=merge` 时的合并后端
+- `--merge-cpp-bin`（build_dbs）：C++ 合并二进制路径（默认 `./local/bin/gt7-db-merge`）
+- `--merge-go-bin`（build_dbs）：Go 合并二进制路径（默认 `./local/bin/gt7-db-merge-go`）
+- `--hero-check-engine python|rust`（build_dbs）：Hero 校验后端（默认 `python`）
+- `--hero-check-rust-bin`（build_dbs）：Rust Hero 校验二进制路径（默认 `./local/bin/gt7-hero-check`）
+
+对 `scripts/build_dbs.py` 而言，全局 `Total` 进度分母基于最终计划处理量（已应用 `--limit`、`--car-list`、`--resume`）。
+若单次命令同时构建单语言库与汇总库，同一语言可能在进度中出现两次（单语言阶段 + 汇总阶段），属于预期行为。
 
 从本地 reference 数据生成/刷新 hero 清单：
 ```bash

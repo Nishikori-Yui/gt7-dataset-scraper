@@ -12,19 +12,48 @@ and how data is stored and queried.
 
 ## Repository Layout (High Level)
 - `gt7_scraper/`: fetches GT7 car catalog data and writes into SQLite (+ optional images)
+- `gt7_scraper/build/`: build orchestration (`scripts/build_dbs.py`) including progress, merge, hero checks
 - `gt7_query/`: reads the SQLite database and provides CLI + Python API for consumers
+- `engines/`: optional non-Python accelerators (`gt7_downloader`, `gt7_spec_normalizer`, `gt7_playwright`, `gt7_db_merge_cpp`, `gt7_db_merge_go`, `gt7_hero_check_rust`, `gt7_query_go`, `gt7db_launcher_dotnet`)
 - `docs/`: workflow, schema, and publishing guidance
 - `output/`: default runtime output (ignored by git)
 
 ## Execution Modes
-- `--engine python`: current baseline implementation.
-- `--engine hybrid`: phase-1 optimization path; currently enables SQLite WAL and batched commits while keeping data semantics unchanged.
+- `--engine python`: minimal dependency baseline implementation.
+- `--engine hybrid`: recommended mode; keeps schema/CLI semantics while routing selected hot paths to Go/Rust/Node and SQL/C++ merge backends.
+
+## Language Selection (Project Intent)
+This project is intentionally built as a learning/experiment repository. The core functionality can be implemented in pure Python, but multiple languages are used where each one is a better fit:
+- Python: orchestration, CLI compatibility, fallback logic, and fast iteration
+- SQL (SQLite-first): set-based merge/check operations to reduce Python row loops
+- Go: concurrent image download + optional DB merge/query backends (high I/O throughput, static binaries)
+- Rust: deterministic spec normalization + optional hero validation backend
+- Node/Playwright: browser-side extraction fallback when static assets are incomplete
+- C++ (SQLite C API): optional high-throughput merge backend for `gt7.<locale>.db -> gt7.db`
+- C#/.NET: optional `gt7db` launcher wrapping Python core entrypoints
+
+Rule of use:
+- defaults stay backward-compatible
+- every non-Python path has a Python/SQL fallback path
 
 ## Architecture Overview
 ```mermaid
 flowchart LR
-  U["User CLI\npython -m gt7_scraper / gt7_query"] --> S["gt7_scraper\n(fetch + parse + normalize)"]
-  S --> DB["SQLite\noutput/gt7.db"]
+  U["User CLI\npython -m gt7_scraper / gt7_query"] --> S["Python Orchestrator\n(gt7_scraper + gt7_scraper/build)"]
+  S --> GO["Go Downloader\n(optional)"]
+  S --> RS["Rust Spec Normalizer\n(optional)"]
+  S --> PW["Node/Python Playwright\n(optional fallback)"]
+  S --> SQL["SQLite SQL Merge\n(default merge backend)"]
+  S --> CPP["C++ SQLite Merge\n(optional acceleration)"]
+  S --> MG["Go SQLite Merge\n(optional acceleration)"]
+  S --> RH["Rust Hero Check\n(optional acceleration)"]
+  GO --> DB["SQLite\noutput/gt7.db / gt7.<locale>.db"]
+  RS --> DB
+  PW --> DB
+  SQL --> DB
+  CPP --> DB
+  MG --> DB
+  RH --> DB
   S --> IMG["Images (optional)\noutput/images/"]
   Q["gt7_query\n(read + join + format)"] --> DB
   U --> Q
@@ -85,7 +114,7 @@ flowchart TB
 
 ### Locale path vs asset locale
 Some locales use different language codes in URL paths vs asset filenames. The scraper
-handles this internally (see `gt7_scraper/scraper.py:resolve_locales`).
+handles this internally (see `gt7_scraper/scraper_run.py:resolve_locales`).
 
 Example: a user-facing locale may be `br`, while the site assets might use `bp`.
 
@@ -94,9 +123,21 @@ Example: a user-facing locale may be `br`, while the site assets might use `bp`.
 - `--resume` skips cars already marked `success` in `fetch_log` for the requested locale.
 - Writes are upsert/replace style, so re-running a locale is safe and useful for updates.
 
+## `build_dbs` Flow (Per-Locale + Combined)
+`scripts/build_dbs.py` now supports two combined strategies:
+- `--combined-mode rescrape` (default): keeps legacy behavior by appending locale runs directly into `gt7.db`
+- `--combined-mode merge`: builds `gt7.<locale>.db` first, then merges into `gt7.db` via `--merge-engine python|cpp|go`
+
+Behavioral compatibility:
+- default remains `rescrape`
+- `merge` mode is opt-in
+- `cpp/go` merge automatically falls back to Python SQL merge on failure
+- `--hero-check-engine rust` automatically falls back to Python hero-check on failure
+
 ## Observability and Integrity
 - `fetch_log` records per-car fetch status and errors by locale.
 - `meta` stores values like the official site total count, scraped total count, and a status.
+- In `scripts/build_dbs.py`, global `Total` progress denominator is based on the final planned car order (`limit/car-list/resume` applied), not page regex estimates.
 - If the run is not limited (`--limit 0`) and counts mismatch, the scraper returns exit code `2`
   and sets `meta.status = count_mismatch`.
 
