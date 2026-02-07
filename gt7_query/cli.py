@@ -1,4 +1,7 @@
 import argparse
+import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -51,6 +54,17 @@ def format_text(data: Any) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GT7 database query CLI")
+    parser.add_argument(
+        "--query-engine",
+        choices=["python", "go"],
+        default="python",
+        help="Query backend",
+    )
+    parser.add_argument(
+        "--query-go-bin",
+        default="./local/bin/gt7-query-go",
+        help="Go query backend binary path",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     list_parser = sub.add_parser("list", help="List cars")
@@ -93,9 +107,53 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def run_go_backend(args: argparse.Namespace) -> Any:
+    if args.command == "car":
+        raise RuntimeError("go query backend for 'car' is not parity-validated yet")
+    if args.command == "list" and args.sort in {"max_power", "weight"}:
+        raise RuntimeError("go query backend for list sort=max_power/weight is not parity-validated yet")
+
+    command = [args.query_go_bin, args.command, "--db", args.db]
+    if args.command == "list":
+        command.extend(["--locale", args.locale, "--sort", args.sort, "--limit", str(args.limit)])
+    elif args.command == "car":
+        command.extend(["--locale", args.locale, "--car-id", args.car_id])
+    elif args.command == "stats":
+        command.extend(["--locale", args.locale, "--by", args.by])
+    elif args.command == "overview":
+        pass
+    else:
+        raise RuntimeError(f"Unsupported command for go backend: {args.command}")
+
+    proc = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(f"go query backend failed rc={proc.returncode}: {detail}")
+    payload = (proc.stdout or "").strip()
+    if not payload:
+        raise RuntimeError("go query backend returned empty payload")
+    try:
+        return json.loads(payload)
+    except Exception as exc:
+        raise RuntimeError(f"go query backend returned invalid json: {exc}") from exc
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    if args.query_engine == "go":
+        try:
+            data = run_go_backend(args)
+            write_output(data, args.format, args.out)
+            return
+        except Exception as exc:
+            print(f"warning: {exc}; falling back to python query backend", file=sys.stderr)
 
     if args.command == "list":
         data = list_cars(Path(args.db), locale=args.locale, sort_by=args.sort, limit=args.limit)

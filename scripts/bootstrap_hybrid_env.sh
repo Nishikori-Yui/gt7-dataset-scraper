@@ -8,6 +8,8 @@ LOCAL_BIN_DIR="${ROOT_DIR}/local/bin"
 INSTALL_SYSTEM=1
 INSTALL_PLAYWRIGHT_BROWSER=1
 BUILD_COMPONENTS=1
+BUILD_CPP_MERGE=1
+BUILD_DOTNET_LAUNCHER=1
 
 log() {
   printf '[bootstrap] %s\n' "$*"
@@ -34,6 +36,8 @@ Options:
   --no-system-install         Do not install system packages
   --skip-playwright-browser   Do not run `npx playwright install chromium`
   --skip-build                Do not build Go/Node/Rust components
+  --skip-cpp-merge-build      Do not build C++ merge engine
+  --skip-dotnet-build         Do not build dotnet gt7db launcher
   -h, --help                  Show this help
 EOF
 }
@@ -50,6 +54,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       BUILD_COMPONENTS=0
+      shift
+      ;;
+    --skip-cpp-merge-build)
+      BUILD_CPP_MERGE=0
+      shift
+      ;;
+    --skip-dotnet-build)
+      BUILD_DOTNET_LAUNCHER=0
       shift
       ;;
     -h|--help)
@@ -159,6 +171,79 @@ build_rust_normalizer() {
   )
 }
 
+build_cpp_merge() {
+  if [[ "${BUILD_CPP_MERGE}" -eq 0 ]]; then
+    return
+  fi
+  if [[ ! -x "${ROOT_DIR}/engines/gt7_db_merge_cpp/build.sh" ]]; then
+    warn "C++ merge build script missing; skip"
+    return
+  fi
+  log "Building C++ merge engine"
+  if ! "${ROOT_DIR}/engines/gt7_db_merge_cpp/build.sh"; then
+    warn "Failed to build C++ merge engine; python/sql merge fallback remains available"
+  fi
+}
+
+build_go_merge() {
+  have_cmd go || die "go not found"
+  log "Building Go merge engine"
+  (
+    cd "${ROOT_DIR}/engines/gt7_db_merge_go"
+    go build -o "${LOCAL_BIN_DIR}/gt7-db-merge-go" .
+  )
+}
+
+build_rust_hero_check() {
+  have_cmd cargo || die "cargo not found"
+  log "Building Rust hero-check engine"
+  (
+    cd "${ROOT_DIR}/engines/gt7_hero_check_rust"
+    cargo build --release
+    cp "target/release/gt7-hero-check" "${LOCAL_BIN_DIR}/"
+  )
+}
+
+build_go_query() {
+  have_cmd go || die "go not found"
+  log "Building Go query engine"
+  (
+    cd "${ROOT_DIR}/engines/gt7_query_go"
+    go build -o "${LOCAL_BIN_DIR}/gt7-query-go" .
+  )
+}
+
+build_dotnet_launcher() {
+  if [[ "${BUILD_DOTNET_LAUNCHER}" -eq 0 ]]; then
+    return
+  fi
+  if ! have_cmd dotnet; then
+    warn "dotnet not found; skip gt7db launcher build"
+    return
+  fi
+  local os_name arch runtime out_runtime
+  os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "${os_name}" in
+    darwin) runtime="osx-${arch}" ;;
+    linux) runtime="linux-${arch}" ;;
+    *) warn "unsupported OS for dotnet publish runtime auto-detection: ${os_name}"; return ;;
+  esac
+  out_runtime="${LOCAL_BIN_DIR}/gt7db-${runtime}"
+  log "Building dotnet gt7db launcher (${runtime})"
+  (
+    cd "${ROOT_DIR}/engines/gt7db_launcher_dotnet"
+    dotnet publish Gt7db.Launcher.csproj \
+      -c Release \
+      -r "${runtime}" \
+      --self-contained true \
+      /p:PublishSingleFile=true \
+      /p:PublishTrimmed=false \
+      -o "${out_runtime}"
+    cp "${out_runtime}/gt7db" "${LOCAL_BIN_DIR}/gt7db" || true
+  )
+}
+
 print_summary() {
   log "Toolchain versions:"
   python3 --version || true
@@ -204,6 +289,11 @@ main() {
     build_node_worker
     create_node_wrapper
     build_rust_normalizer
+    build_cpp_merge
+    build_go_merge
+    build_rust_hero_check
+    build_go_query
+    build_dotnet_launcher
   fi
 
   print_summary
