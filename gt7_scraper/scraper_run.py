@@ -19,7 +19,8 @@ from .backends.playwright.node_pw import (
 from .backends.spec.rust_normalizer import resolve_rust_spec_binary
 from .parser import parse_descriptions
 from .utils import slugify
-from .scrape.catalog_parse import (
+from .domain.catalog.executor import run_car_processing
+from .domain.catalog.parsing import (
     ScraperError,
     build_session,
     extract_chunk_name,
@@ -35,22 +36,21 @@ from .scrape.catalog_parse import (
     resolve_asset_url,
     resolve_locales,
 )
-from .scrape.constants import BASE_URL
-from .scrape.detail_fetch import (
+from .domain.images.detail import (
     PlaywrightPool,
     extract_list_thumbs_with_playwright,
     parse_detail_html,
     parse_list_html_for_thumbs_with_backend,
     resolve_hero_urls_from_asset_modules,
 )
-from .scrape.executor import run_car_processing
-from .scrape.normalize import (
+from .domain.spec.normalization import (
     build_tc_sc_label,
     load_country_i18n_map,
     load_country_iso_map,
     load_spec_label_map,
     parse_car_list,
 )
+from .scrape.constants import BASE_URL
 
 def run_scraper(
     locale: str,

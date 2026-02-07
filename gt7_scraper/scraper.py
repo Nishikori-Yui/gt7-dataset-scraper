@@ -1,6 +1,6 @@
 """Compatibility exports for scraper modules.
 
-The implementation lives in `scraper_run.py`.
+The implementation lives in `app/scrape_runner.py`.
 """
 
-from .scraper_run import *  # noqa: F401,F403
+from .app.scrape_runner import *  # noqa: F401,F403
