@@ -169,6 +169,36 @@ def init_db(conn: sqlite3.Connection, create_images: bool = True) -> None:
     log_columns = {row[1] for row in cur.execute("PRAGMA table_info(fetch_log)")}
     if "locale" not in log_columns:
         cur.execute("ALTER TABLE fetch_log ADD COLUMN locale TEXT NOT NULL DEFAULT 'us'")
+    # Query-path indexes for frequent lookups in scraper/build/query flows.
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fetch_log_car_locale_id ON fetch_log(car_id, locale, id DESC)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fetch_log_locale_status ON fetch_log(locale, status)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_car_specs_car_locale_sort ON car_specs(car_id, locale, sort_order)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_car_specs_locale_key ON car_specs(locale, spec_key)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_car_texts_locale_car ON car_texts(locale, car_id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_manufacturer_i18n_locale_id ON manufacturer_i18n(locale, id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_manufacturers_country_id ON manufacturers(country_id)"
+    )
+    has_car_images_table = (
+        cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='car_images' LIMIT 1").fetchone()
+        is not None
+    )
+    if has_car_images_table:
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_car_images_car_type_sort ON car_images(car_id, image_type, sort_order)"
+        )
     conn.commit()
 
 
