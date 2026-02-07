@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 
 def connect_db(path: Path) -> sqlite3.Connection:
@@ -305,12 +305,23 @@ def replace_country_iso_map(conn: sqlite3.Connection, mapping: Dict[str, str]) -
     conn.commit()
 
 
-def replace_country_i18n(conn: sqlite3.Connection, mapping: Dict[str, Dict[str, str]]) -> None:
+def replace_country_i18n(
+    conn: sqlite3.Connection,
+    mapping: Dict[str, Dict[str, str]],
+    locale: Optional[str] = None,
+    fallback_locale: str = "gb",
+) -> None:
     conn.execute("DELETE FROM country_i18n")
     rows = []
-    for iso3, locales in mapping.items():
-        for locale, name in locales.items():
-            rows.append((iso3, locale, name))
+    if locale:
+        for iso3, locales in mapping.items():
+            name = locales.get(locale) or locales.get(fallback_locale)
+            if name:
+                rows.append((iso3, locale, name))
+    else:
+        for iso3, locales in mapping.items():
+            for locale_key, name in locales.items():
+                rows.append((iso3, locale_key, name))
     if rows:
         conn.executemany("INSERT INTO country_i18n(iso3, locale, name) VALUES(?, ?, ?)", rows)
     conn.commit()

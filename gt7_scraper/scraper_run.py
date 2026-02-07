@@ -238,10 +238,7 @@ def run_scraper(
         db.replace_country_iso_map(conn, country_iso_map)
     country_i18n_map = load_country_i18n_map()
     if country_i18n_map:
-        for iso3, locales in list(country_i18n_map.items()):
-            if locale not in locales and "gb" in locales:
-                locales[locale] = locales["gb"]
-        db.replace_country_i18n(conn, country_i18n_map)
+        db.replace_country_i18n(conn, country_i18n_map, locale=locale, fallback_locale="gb")
 
     if limit > 0:
         car_ids = car_ids[:limit]
