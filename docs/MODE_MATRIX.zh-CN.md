@@ -87,7 +87,7 @@
 - 多语言构建：`scripts/build_dbs.py --engine hybrid --playwright-policy off`
 - 仅在明确需要浏览器回退时再启用 Playwright。
 - 构建合并后端默认已切换为 `go`（`--merge-engine`），Hero 校验后端默认已切换为 `rust`（`--hero-check-engine`）。
-- 查询 CLI 默认已切换为 `auto`：`list(manufacturer|country|drivetrain)`、`stats`、`overview` 走 Go；`car` 与 `list --sort max_power|weight` 走 Python。
+- 查询 CLI 默认已切换为 `auto`：所有子命令优先走 Go，执行失败时自动回退 Python。
 
 ## 复现命令
 

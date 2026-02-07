@@ -8,7 +8,7 @@
 后端选项（全局）：
 - `--query-engine auto|python|go`（默认：`auto`）
 - `--query-go-bin ./local/bin/gt7-query-go`
-- `auto` 路由规则：`list(manufacturer|country|drivetrain)`、`stats`、`overview` 走 Go；`car` 与 `list --sort max_power|weight` 走 Python。
+- `auto` 路由规则：所有子命令默认走 Go 后端。
 - 当 Go 路径上的二进制缺失或执行失败时，CLI 会给出 warning 并自动回退到 Python 后端。
 - 迁移阶段仍保留 Python 后端以兼容历史用法。
 

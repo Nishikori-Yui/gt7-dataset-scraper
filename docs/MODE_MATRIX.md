@@ -87,7 +87,7 @@ Command base:
 - Multi-locale build: `scripts/build_dbs.py --engine hybrid --playwright-policy off`
 - Use Playwright only when you explicitly need browser fallback behavior.
 - Build merge backend default is now `go` (`--merge-engine`), and hero-check backend default is `rust` (`--hero-check-engine`).
-- Query CLI default backend is now `auto`: Go for `list(manufacturer|country|drivetrain)`, `stats`, `overview`; Python for `car` and `list --sort max_power|weight`.
+- Query CLI default backend is now `auto`, which routes all commands to Go first and falls back to Python on execution failure.
 
 ## Re-run Commands
 

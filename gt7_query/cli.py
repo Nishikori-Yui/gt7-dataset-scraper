@@ -110,19 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
 def resolve_backend(args: argparse.Namespace) -> str:
     if args.query_engine in {"python", "go"}:
         return args.query_engine
-    if args.command in {"stats", "overview"}:
-        return "go"
-    if args.command == "list" and args.sort not in {"max_power", "weight"}:
-        return "go"
-    return "python"
+    return "go"
 
 
 def run_go_backend(args: argparse.Namespace) -> Any:
-    if args.command == "car":
-        raise RuntimeError("go query backend for 'car' is not parity-validated yet")
-    if args.command == "list" and args.sort in {"max_power", "weight"}:
-        raise RuntimeError("go query backend for list sort=max_power/weight is not parity-validated yet")
-
     command = [args.query_go_bin, args.command, "--db", args.db]
     if args.command == "list":
         command.extend(["--locale", args.locale, "--sort", args.sort, "--limit", str(args.limit)])
