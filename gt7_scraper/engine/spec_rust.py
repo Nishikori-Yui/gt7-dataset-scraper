@@ -2,7 +2,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 def resolve_rust_spec_binary(engines_dir: Path | None) -> str | None:
@@ -73,3 +73,37 @@ def normalize_specs_with_rust(
             }
         )
     return out
+
+
+def normalize_codes_with_rust(
+    binary: str,
+    locale: str,
+    aspiration: Optional[str],
+    aspiration_short: Optional[str],
+    drivetrain: Optional[str],
+) -> Dict[str, Optional[str]]:
+    payload = {
+        "locale": locale,
+        "aspiration": aspiration or "",
+        "aspiration_short": aspiration_short or "",
+        "drivetrain": drivetrain or "",
+    }
+    cmd = [binary, "--mode", "codes"]
+    proc = subprocess.run(
+        cmd,
+        input=json.dumps(payload, ensure_ascii=True).encode("utf-8"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.decode("utf-8", errors="replace").strip())
+    parsed = json.loads(proc.stdout.decode("utf-8", errors="replace") or "{}")
+    if not isinstance(parsed, dict):
+        raise RuntimeError("rust code normalizer returned non-dict output")
+    return {
+        "aspiration_code": str(parsed.get("aspiration_code", "") or "") or None,
+        "aspiration_label": str(parsed.get("aspiration_label", "") or "") or None,
+        "drivetrain_code": str(parsed.get("drivetrain_code", "") or "") or None,
+        "drivetrain_label": str(parsed.get("drivetrain_label", "") or "") or None,
+    }
