@@ -1,3 +1,7 @@
+from .compat._warnings import warn_compat
+
+warn_compat("gt7_scraper.db", "gt7_scraper.infra.db + gt7_scraper.dbx")
+
 from .dbx import (
     backfill_manufacturer_country_from_raw_json,
     cleanup_aspiration_drivetrain,

@@ -3,6 +3,10 @@
 This module keeps stable imports while extraction logic is hosted in `scraper_run.py`.
 """
 
+from .compat._warnings import warn_compat
+
+warn_compat("gt7_scraper.scraper_extract", "gt7_scraper.domain.catalog + gt7_scraper.domain.images")
+
 from .scraper_run import (  # noqa: F401
     extract_chunk_name,
     extract_detail_with_node,
