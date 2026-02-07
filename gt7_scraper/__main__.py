@@ -1,4 +1,4 @@
-from .cli import main
+from .app.scrape_cli import main
 
 if __name__ == "__main__":
     main()
