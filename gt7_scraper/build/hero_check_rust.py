@@ -11,7 +11,11 @@ def run_rust_hero_check(
     hero_min: int,
 ) -> Tuple[bool, str, int, List[Dict[str, object]]]:
     if not binary.exists():
-        return False, f"rust hero-check binary not found: {binary}", 0, []
+        exe_binary = binary.with_suffix(".exe")
+        if exe_binary.exists():
+            binary = exe_binary
+        else:
+            return False, f"rust hero-check binary not found: {binary}", 0, []
     cmd = [
         str(binary),
         "--manifest",

@@ -7,17 +7,19 @@ from typing import Dict, List, Optional
 
 def resolve_downloader_binary(engines_dir: Optional[Path]) -> Optional[str]:
     if engines_dir:
-        candidate = engines_dir / "gt7-downloader"
-        if candidate.exists() and candidate.is_file():
-            return str(candidate)
+        base = engines_dir / "gt7-downloader"
+        for candidate in (base, base.with_suffix(".exe")):
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
     repo_candidate = (
         Path(__file__).resolve().parents[3]
         / "engines"
         / "gt7_downloader"
         / "gt7-downloader"
     )
-    if repo_candidate.exists() and repo_candidate.is_file():
-        return str(repo_candidate)
+    for candidate in (repo_candidate, repo_candidate.with_suffix(".exe")):
+        if candidate.exists() and candidate.is_file():
+            return str(candidate)
     path_bin = shutil.which("gt7-downloader")
     if path_bin:
         return path_bin

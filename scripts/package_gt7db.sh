@@ -74,6 +74,26 @@ if [[ "${RUNTIME}" == "unsupported" ]]; then
   exit 1
 fi
 
+runtime_to_tokens() {
+  local runtime="$1"
+  local os="${runtime%%-*}"
+  local arch="${runtime##*-}"
+  local os_name
+  local arch_name
+  case "${os}" in
+    osx) os_name="macOS" ;;
+    linux) os_name="linux" ;;
+    win) os_name="windows" ;;
+    *) os_name="${os}" ;;
+  esac
+  case "${arch}" in
+    x64|amd64) arch_name="AMD64" ;;
+    arm64) arch_name="ARM64" ;;
+    *) arch_name="${arch^^}" ;;
+  esac
+  echo "${os_name} ${arch_name}"
+}
+
 if [[ "${SKIP_BUILD}" -eq 0 ]]; then
   "${ROOT_DIR}/scripts/bootstrap_hybrid_env.sh" --skip-playwright-browser
   if command -v dotnet >/dev/null 2>&1; then
@@ -83,7 +103,9 @@ if [[ "${SKIP_BUILD}" -eq 0 ]]; then
   fi
 fi
 
-PKG_ROOT="${DIST_DIR}/gt7db-${FLAVOR}-${RUNTIME}"
+read -r OS_NAME ARCH_NAME < <(runtime_to_tokens "${RUNTIME}")
+PKG_NAME="GT7DB_${FLAVOR^^}_${OS_NAME}_${ARCH_NAME}"
+PKG_ROOT="${DIST_DIR}/${PKG_NAME}"
 rm -rf "${PKG_ROOT}"
 mkdir -p "${PKG_ROOT}"
 mkdir -p "${PKG_ROOT}/app"
@@ -127,5 +149,5 @@ EOF
 chmod +x "${PKG_ROOT}/run.sh"
 
 mkdir -p "${DIST_DIR}"
-tar -C "${DIST_DIR}" -czf "${DIST_DIR}/gt7db-${FLAVOR}-${RUNTIME}.tar.gz" "gt7db-${FLAVOR}-${RUNTIME}"
-echo "package created: ${DIST_DIR}/gt7db-${FLAVOR}-${RUNTIME}.tar.gz"
+tar -C "${DIST_DIR}" -czf "${DIST_DIR}/${PKG_NAME}.tar.gz" "${PKG_NAME}"
+echo "package created: ${DIST_DIR}/${PKG_NAME}.tar.gz"

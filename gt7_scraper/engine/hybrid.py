@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
 
-from ..scraper import run_scraper
+from ..app.scrape_runner import run_scraper
 
 
 def run_hybrid_scraper(
@@ -31,6 +31,7 @@ def run_hybrid_scraper(
     catalog_engine: str = "go",
     playwright_engine: str = "node",
     spec_engine: str = "rust",
+    backend_fallback: bool = True,
 ) -> int:
     return run_scraper(
         locale=locale,
@@ -60,4 +61,5 @@ def run_hybrid_scraper(
         catalog_engine=catalog_engine,
         playwright_engine=playwright_engine,
         spec_engine=spec_engine,
+        backend_fallback=backend_fallback,
     )

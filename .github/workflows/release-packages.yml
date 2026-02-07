@@ -1,0 +1,153 @@
+name: release-packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (for example v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build-${{ matrix.platform }}-${{ matrix.flavor }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [darwin-arm64, darwin-x64, linux-x64, linux-arm64, win-x64, win-arm64]
+        flavor: [lite, full]
+        include:
+          - platform: darwin-arm64
+            runner: macos-14
+          - platform: darwin-x64
+            runner: macos-13
+          - platform: linux-x64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+          - platform: win-x64
+            runner: windows-2022
+          - platform: win-arm64
+            runner: windows-11-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Resolve package basename
+        id: pkg
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          RELEASE_FLAVOR: ${{ matrix.flavor }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          from scripts.release.release_native import release_basename
+          print(f"basename={release_basename(os.environ['RELEASE_TAG'], os.environ['RELEASE_PLATFORM'], os.environ['RELEASE_FLAVOR'])}")
+          PY
+
+      - name: Build release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/release/build_release.py \
+            --flavor "${{ matrix.flavor }}" \
+            --platform "${{ matrix.platform }}" \
+            --version "${{ steps.meta.outputs.tag }}" \
+            --out-dir ./dist/release
+
+      - name: Smoke test package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_DIR="./dist/release/${{ steps.pkg.outputs.basename }}"
+          python scripts/release/smoke_release.py --package-dir "$PKG_DIR"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.basename }}
+          path: |
+            dist/release/${{ steps.pkg.outputs.basename }}.*
+          if-no-files-found: error
+
+  release:
+    name: publish-release
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/release-upload
+          merge-multiple: true
+
+      - name: Build release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist/release-upload
+          sha256sum GT7DB_* > SHA256SUMS
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/release-upload/*
+          generate_release_notes: true

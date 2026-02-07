@@ -6,16 +6,9 @@ from threading import Lock, local as thread_local
 from typing import Any, Callable, Dict, List, Optional
 
 from . import db
-from .backends.catalog.go_parser import (
-    parse_detail_with_go,
-    resolve_catalog_binary,
-)
+from .backends.catalog.go_parser import parse_detail_with_go, resolve_catalog_binary
 from .backends.images.go_downloader import resolve_downloader_binary
-from .backends.playwright.node_pw import (
-    extract_detail_with_node,
-    extract_list_thumbs_with_node,
-    resolve_node_playwright_script,
-)
+from .backends.playwright.node_pw import extract_detail_with_node, extract_list_thumbs_with_node, resolve_node_playwright_script
 from .backends.spec.rust_normalizer import resolve_rust_spec_binary
 from .parser import parse_descriptions
 from .utils import slugify
@@ -28,28 +21,13 @@ from .domain.catalog.parsing import (
     extract_site_total_count,
     extract_specs_from_data,
     fetch_text,
-    parse_car_data,
-    parse_id_list,
     parse_chunk_with_backend,
-    parse_tuner_data,
     pick_first,
     resolve_asset_url,
     resolve_locales,
 )
-from .domain.images.detail import (
-    PlaywrightPool,
-    extract_list_thumbs_with_playwright,
-    parse_detail_html,
-    parse_list_html_for_thumbs_with_backend,
-    resolve_hero_urls_from_asset_modules,
-)
-from .domain.spec.normalization import (
-    build_tc_sc_label,
-    load_country_i18n_map,
-    load_country_iso_map,
-    load_spec_label_map,
-    parse_car_list,
-)
+from .domain.images.detail import PlaywrightPool, extract_list_thumbs_with_playwright, parse_detail_html, parse_list_html_for_thumbs_with_backend, resolve_hero_urls_from_asset_modules
+from .domain.spec.normalization import build_tc_sc_label, load_country_i18n_map, load_country_iso_map, load_spec_label_map, parse_car_list
 from .scrape.constants import BASE_URL
 
 def run_scraper(
@@ -81,6 +59,7 @@ def run_scraper(
     catalog_engine: str = "python",
     playwright_engine: str = "python",
     spec_engine: str = "python",
+    backend_fallback: bool = True,
 ) -> int:
     session = build_session()
     path_locale, asset_locale = resolve_locales(locale)
@@ -93,26 +72,58 @@ def run_scraper(
     db.cleanup_spec_labels(conn, locale)
     db.cleanup_aspiration_drivetrain(conn, locale)
     db.backfill_manufacturer_country_from_raw_json(conn)
+
+    def resolve_backend_binary(
+        resolver: Callable[[Optional[Path]], Optional[str]],
+        warn_message: str,
+        error_message: str,
+    ) -> tuple[Optional[str], bool]:
+        binary = resolver(engines_dir)
+        if binary is not None:
+            return binary, False
+        if backend_fallback:
+            print(warn_message, file=sys.stderr)
+            return None, False
+        print(error_message, file=sys.stderr)
+        conn.close()
+        return None, True
+
     go_downloader_bin: Optional[str] = None
     if download_images and downloader_engine == "go":
-        go_downloader_bin = resolve_downloader_binary(engines_dir)
-        if go_downloader_bin is None:
-            print("warning: gt7-downloader not found; falling back to python downloader", file=sys.stderr)
+        go_downloader_bin, should_exit = resolve_backend_binary(
+            resolve_downloader_binary,
+            "warning: gt7-downloader not found; falling back to python downloader",
+            "error: gt7-downloader not found and backend-fallback=off",
+        )
+        if should_exit:
+            return 2
     node_playwright_script: Optional[str] = None
     if use_playwright and playwright_engine == "node":
-        node_playwright_script = resolve_node_playwright_script(engines_dir)
-        if node_playwright_script is None:
-            print("warning: gt7-playwright not found; falling back to python playwright", file=sys.stderr)
+        node_playwright_script, should_exit = resolve_backend_binary(
+            resolve_node_playwright_script,
+            "warning: gt7-playwright not found; falling back to python playwright",
+            "error: gt7-playwright not found and backend-fallback=off",
+        )
+        if should_exit:
+            return 2
     rust_spec_bin: Optional[str] = None
     go_catalog_bin: Optional[str] = None
     if catalog_engine == "go":
-        go_catalog_bin = resolve_catalog_binary(engines_dir)
-        if go_catalog_bin is None:
-            print("warning: gt7-catalog-go not found; falling back to python catalog parser", file=sys.stderr)
+        go_catalog_bin, should_exit = resolve_backend_binary(
+            resolve_catalog_binary,
+            "warning: gt7-catalog-go not found; falling back to python catalog parser",
+            "error: gt7-catalog-go not found and backend-fallback=off",
+        )
+        if should_exit:
+            return 2
     if spec_engine == "rust":
-        rust_spec_bin = resolve_rust_spec_binary(engines_dir)
-        if rust_spec_bin is None:
-            print("warning: gt7-spec-normalizer not found; falling back to python spec normalization", file=sys.stderr)
+        rust_spec_bin, should_exit = resolve_backend_binary(
+            resolve_rust_spec_binary,
+            "warning: gt7-spec-normalizer not found; falling back to python spec normalization",
+            "error: gt7-spec-normalizer not found and backend-fallback=off",
+        )
+        if should_exit:
+            return 2
     spec_mappings_dir = Path(__file__).resolve().parent / "mappings" / "spec_labels"
 
     carlist_url = f"{BASE_URL}/{path_locale}/gt7/carlist/"
@@ -130,7 +141,7 @@ def run_scraper(
     car_chunk_url = resolve_asset_url(car_chunk_name)
     car_chunk_js = fetch_text(session, car_chunk_url, timeout)
     catalog_warning = {"shown": False}
-    car_data = parse_chunk_with_backend(car_chunk_js, "car", go_catalog_bin, catalog_warning)
+    car_data = parse_chunk_with_backend(car_chunk_js, "car", go_catalog_bin, catalog_warning, allow_fallback=backend_fallback)
 
     tuner_map: Dict[str, str] = {}
     tuner_chunk_name = extract_chunk_name(
@@ -139,7 +150,7 @@ def run_scraper(
     if tuner_chunk_name:
         tuner_chunk_url = resolve_asset_url(tuner_chunk_name)
         tuner_chunk_js = fetch_text(session, tuner_chunk_url, timeout)
-        tuners = parse_chunk_with_backend(tuner_chunk_js, "tuner", go_catalog_bin, catalog_warning)
+        tuners = parse_chunk_with_backend(tuner_chunk_js, "tuner", go_catalog_bin, catalog_warning, allow_fallback=backend_fallback)
         for key, val in tuners.items():
             if isinstance(val, dict) and "name" in val:
                 tuner_map[key] = str(val["name"])
@@ -151,7 +162,7 @@ def run_scraper(
     if id_list_name:
         id_list_url = resolve_asset_url(id_list_name)
         id_list_js = fetch_text(session, id_list_url, timeout)
-        id_list = parse_chunk_with_backend(id_list_js, "id_list", go_catalog_bin, catalog_warning)
+        id_list = parse_chunk_with_backend(id_list_js, "id_list", go_catalog_bin, catalog_warning, allow_fallback=backend_fallback)
 
     car_ids: List[str] = []
     thumb_map = parse_list_html_for_thumbs_with_backend(html, go_catalog_bin)
@@ -259,6 +270,8 @@ def run_scraper(
             try:
                 return parse_detail_with_go(go_catalog_bin, detail_html, car_id)
             except Exception as exc:
+                if not backend_fallback:
+                    raise
                 if not catalog_warning["shown"]:
                     print(f"warning: gt7-catalog-go failed ({exc}); using python parser", file=sys.stderr)
                     catalog_warning["shown"] = True
@@ -332,6 +345,7 @@ def run_scraper(
             "progress_callback": progress_callback,
             "rate": rate,
             "commit_batch": commit_batch,
+            "backend_fallback": backend_fallback,
         },
     )
 

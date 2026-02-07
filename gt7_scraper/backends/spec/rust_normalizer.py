@@ -7,9 +7,10 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 def resolve_rust_spec_binary(engines_dir: Path | None) -> str | None:
     if engines_dir:
-        candidate = engines_dir / "gt7-spec-normalizer"
-        if candidate.exists() and candidate.is_file():
-            return str(candidate)
+        base = engines_dir / "gt7-spec-normalizer"
+        for candidate in (base, base.with_suffix(".exe")):
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
     path_bin = shutil.which("gt7-spec-normalizer")
     if path_bin:
         return path_bin
@@ -21,8 +22,9 @@ def resolve_rust_spec_binary(engines_dir: Path | None) -> str | None:
         / "release"
         / "gt7-spec-normalizer"
     )
-    if repo_candidate.exists() and repo_candidate.is_file():
-        return str(repo_candidate)
+    for candidate in (repo_candidate, repo_candidate.with_suffix(".exe")):
+        if candidate.exists() and candidate.is_file():
+            return str(candidate)
     return None
 
 

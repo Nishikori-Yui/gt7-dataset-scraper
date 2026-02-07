@@ -7,9 +7,10 @@ from typing import Any, Dict, List, Optional
 def resolve_catalog_binary(engines_dir: Optional[Path]) -> Optional[str]:
     if not engines_dir:
         return None
-    candidate = Path(engines_dir) / "gt7-catalog-go"
-    if candidate.exists():
-        return str(candidate)
+    base = Path(engines_dir) / "gt7-catalog-go"
+    for candidate in (base, base.with_suffix(".exe")):
+        if candidate.exists():
+            return str(candidate)
     return None
 
 

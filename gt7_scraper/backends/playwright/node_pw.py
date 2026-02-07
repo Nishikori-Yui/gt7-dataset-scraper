@@ -6,9 +6,15 @@ from typing import Any, Dict, Optional
 
 def resolve_node_playwright_script(engines_dir: Optional[Path]) -> Optional[str]:
     if engines_dir:
-        candidate = engines_dir / "gt7-playwright"
-        if candidate.exists() and candidate.is_file():
-            return str(candidate)
+        base = engines_dir / "gt7-playwright"
+        for candidate in (
+            base,
+            base.with_suffix(".exe"),
+            base.with_suffix(".cmd"),
+            base.with_suffix(".js"),
+        ):
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
     repo_script = (
         Path(__file__).resolve().parents[3]
         / "engines"

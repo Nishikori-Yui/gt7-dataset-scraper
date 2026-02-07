@@ -129,6 +129,7 @@ def parse_chunk_with_backend(
     chunk_type: str,
     go_catalog_bin: Optional[str],
     warning_state: Optional[Dict[str, bool]] = None,
+    allow_fallback: bool = True,
 ) -> Any:
     if go_catalog_bin:
         try:
@@ -140,6 +141,8 @@ def parse_chunk_with_backend(
             if chunk_type == "id_list":
                 return parsed if isinstance(parsed, list) else None
         except Exception as exc:
+            if not allow_fallback:
+                raise ScraperError(f"gt7-catalog-go failed and backend-fallback=off: {exc}") from exc
             shown = bool((warning_state or {}).get("shown"))
             if not shown:
                 print(f"warning: gt7-catalog-go failed ({exc}); using python catalog parser", file=sys.stderr)

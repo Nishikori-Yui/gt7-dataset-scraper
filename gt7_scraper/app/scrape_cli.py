@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from ..engine.hybrid import run_hybrid_scraper
-from ..scraper import run_scraper
+from .scrape_runner import run_scraper
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -132,6 +132,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Path to car id list file (one carId per line)",
     )
+    parser.add_argument(
+        "--backend-fallback",
+        choices=["on", "off"],
+        default="on",
+        help="Allow fallback to python backends when native backend fails",
+    )
     return parser
 
 
@@ -176,6 +182,7 @@ def main() -> None:
         catalog_engine=catalog_engine,
         playwright_engine=playwright_engine,
         spec_engine=spec_engine,
+        backend_fallback=(args.backend_fallback == "on"),
     )
     if exit_code:
         sys.exit(exit_code)

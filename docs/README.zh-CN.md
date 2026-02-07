@@ -79,6 +79,7 @@ python -m gt7_scraper --engine python --locale gb --db ./output/gt7.db --images 
 - 架构与数据流：[ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)
 - 混合引擎指南：[HYBRID_ENGINE.zh-CN.md](HYBRID_ENGINE.zh-CN.md)
 - 模式矩阵（实测）：[MODE_MATRIX.zh-CN.md](MODE_MATRIX.zh-CN.md)
+- 发布打包体系：[RELEASE_PACKAGING.zh-CN.md](RELEASE_PACKAGING.zh-CN.md)
 - 查询 CLI/API：[QUERY_CLI.zh-CN.md](QUERY_CLI.zh-CN.md)
 - 数据库结构：[DB_SCHEMA.zh-CN.md](DB_SCHEMA.zh-CN.md)
 - 法律与发布：[LEGAL_AND_PUBLISHING.zh-CN.md](LEGAL_AND_PUBLISHING.zh-CN.md)

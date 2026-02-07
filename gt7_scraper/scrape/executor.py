@@ -198,6 +198,8 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
                 retries=ctx["download_retries"],
             )
         except Exception:
+            if not ctx.get("backend_fallback", True):
+                raise
             session = ctx["get_session"]()
             logo_path = build_logo(manufacturer_id, logo_url, ctx["image_dir"], session, ctx["timeout"])
             image_rows = build_car_images(
@@ -249,7 +251,8 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
             drivetrain_code = normalized_codes.get("drivetrain_code") or drivetrain_code
             drivetrain_label = normalized_codes.get("drivetrain_label") or drivetrain_label
         except Exception:
-            pass
+            if not ctx.get("backend_fallback", True):
+                raise
     return {
         "car_id": car_id,
         "manufacturer": {
@@ -338,6 +341,8 @@ def run_car_processing(
                             mappings_dir=ctx["spec_mappings_dir"],
                         )
                     except Exception:
+                        if not ctx.get("backend_fallback", True):
+                            raise
                         spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])
                 else:
                     spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])

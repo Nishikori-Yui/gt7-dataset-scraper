@@ -79,6 +79,7 @@ Common options:
 - Architecture & data flow: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Hybrid engine guide: [docs/HYBRID_ENGINE.md](docs/HYBRID_ENGINE.md)
 - Mode matrix (tested): [docs/MODE_MATRIX.md](docs/MODE_MATRIX.md)
+- Release packaging: [docs/RELEASE_PACKAGING.md](docs/RELEASE_PACKAGING.md)
 - Query CLI/API usage: [docs/QUERY_CLI.md](docs/QUERY_CLI.md)
 - Database schema: [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md)
 - Legal & publishing: [docs/LEGAL_AND_PUBLISHING.md](docs/LEGAL_AND_PUBLISHING.md)

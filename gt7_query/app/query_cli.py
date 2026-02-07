@@ -1,11 +1,11 @@
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from ..backends.go_backend import run_go_backend
-from ..backends.python_backend import run_python_backend
 from ..query_stats import dump_json
 
 
@@ -46,6 +46,10 @@ def format_text(data: Any) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    default_fallback = os.environ.get("GT7DB_QUERY_FALLBACK", "on").strip().lower()
+    if default_fallback not in {"on", "off"}:
+        default_fallback = "on"
+
     parser = argparse.ArgumentParser(description="GT7 database query CLI")
     parser.add_argument(
         "--query-engine",
@@ -57,6 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--query-go-bin",
         default="./local/bin/gt7-query-go",
         help="Go query backend binary path",
+    )
+    parser.add_argument(
+        "--query-fallback",
+        choices=["on", "off"],
+        default=default_fallback,
+        help="Allow fallback to python query backend when go backend fails",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -106,6 +116,17 @@ def resolve_backend(args: argparse.Namespace) -> str:
     return "go"
 
 
+def run_python_backend_safe(args: argparse.Namespace) -> Any:
+    try:
+        from ..backends.python_backend import run_python_backend
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "python query backend is unavailable in this runtime package; "
+            "use --query-engine go or install full python backend modules"
+        ) from exc
+    return run_python_backend(args)
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -117,9 +138,12 @@ def main() -> None:
             write_output(data, args.format, args.out)
             return
         except Exception as exc:
+            if args.query_fallback == "off":
+                print(f"error: {exc}; query-fallback=off", file=sys.stderr)
+                raise SystemExit(2)
             print(f"warning: {exc}; falling back to python query backend", file=sys.stderr)
 
-    data = run_python_backend(args)
+    data = run_python_backend_safe(args)
     write_output(data, args.format, args.out)
 
 
