@@ -17,6 +17,23 @@
 - `docs/`：流程、Schema、发布与合规说明
 - `output/`：默认运行输出目录（已在 gitignore 中忽略）
 
+## 运行时代码布局（业务优先）
+运行时代码采用“先按业务，再按后端类型”组织：
+- `gt7_scraper/app/`：抓取/构建入口编排（`scrape_runner.py`、`build_runner.py`、`scrape_cli.py`）
+- `gt7_scraper/domain/`：catalog/spec/images 业务逻辑
+- `gt7_scraper/backends/`：Python/原生后端适配器（`catalog`、`spec`、`images`、`playwright`）
+- `gt7_scraper/infra/`：DB/HTTP/IO 基础设施层
+- `gt7_scraper/compat/`：旧导入路径的兼容壳
+- `gt7_query/app/`：查询 CLI 入口
+- `gt7_query/domain/`：list/detail/stats/overview 服务层
+- `gt7_query/backends/`：go/python 查询后端分发
+- `gt7_query/infra/`：底层 DB 辅助
+- `gt7_query/compat/`：旧 `queries` 用法兼容层
+
+说明：
+- 顶层 `engines/` 仍作为原生工具链源码根目录（Go/Rust/Node/C++/.NET）。
+- 兼容模块为过渡层，后续版本可能移除。
+
 ## 执行模式
 - `--engine python`：最小依赖的基线实现。
 - `--engine hybrid`：推荐模式；在保持 schema/CLI 语义不变的前提下，把热点路径交给 Go/Rust/Node 与 SQL/C++ 合并后端。
