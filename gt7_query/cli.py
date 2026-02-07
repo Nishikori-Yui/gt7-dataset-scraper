@@ -56,8 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GT7 database query CLI")
     parser.add_argument(
         "--query-engine",
-        choices=["python", "go"],
-        default="python",
+        choices=["auto", "python", "go"],
+        default="auto",
         help="Query backend",
     )
     parser.add_argument(
@@ -107,6 +107,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def resolve_backend(args: argparse.Namespace) -> str:
+    if args.query_engine in {"python", "go"}:
+        return args.query_engine
+    if args.command in {"stats", "overview"}:
+        return "go"
+    if args.command == "list" and args.sort not in {"max_power", "weight"}:
+        return "go"
+    return "python"
+
+
 def run_go_backend(args: argparse.Namespace) -> Any:
     if args.command == "car":
         raise RuntimeError("go query backend for 'car' is not parity-validated yet")
@@ -147,7 +157,8 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.query_engine == "go":
+    selected_backend = resolve_backend(args)
+    if selected_backend == "go":
         try:
             data = run_go_backend(args)
             write_output(data, args.format, args.out)
