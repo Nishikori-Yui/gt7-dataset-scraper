@@ -77,10 +77,20 @@ def build_rust_binaries(platform_id: str) -> None:
         (REPO_ROOT / "engines" / "gt7_spec_normalizer", "gt7-spec-normalizer"),
         (REPO_ROOT / "engines" / "gt7_hero_check_rust", "gt7-hero-check"),
     ]
+    target = None
+    if platform_id == "darwin-x64":
+        target = "x86_64-apple-darwin"
+
     LOCAL_BIN.mkdir(parents=True, exist_ok=True)
     for cwd, stem in builds:
-        run(["cargo", "build", "--release"], cwd=cwd)
-        source = cwd / "target" / "release" / exe_name(stem, platform_id)
+        cmd = ["cargo", "build", "--release"]
+        if target:
+            cmd.extend(["--target", target])
+        run(cmd, cwd=cwd)
+        if target:
+            source = cwd / "target" / target / "release" / exe_name(stem, platform_id)
+        else:
+            source = cwd / "target" / "release" / exe_name(stem, platform_id)
         if not source.exists() and is_windows(platform_id):
             source = cwd / "target" / "release" / f"{stem}.exe"
         if not source.exists():

@@ -16,18 +16,17 @@ permissions:
 
 jobs:
   build:
-    name: build-${{ matrix.platform }}-${{ matrix.flavor }}
+    name: build-${{ matrix.platform }}-lite
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         platform: [darwin-arm64, darwin-x64, linux-x64, linux-arm64, win-x64, win-arm64]
-        flavor: [lite]
         include:
           - platform: darwin-arm64
             runner: macos-14
           - platform: darwin-x64
-            runner: macos-15-intel
+            runner: macos-14
           - platform: linux-x64
             runner: ubuntu-24.04
           - platform: linux-arm64
@@ -65,6 +64,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup Rust target for darwin-x64 cross-build
+        if: matrix.platform == 'darwin-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add x86_64-apple-darwin
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -76,7 +82,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_PLATFORM: ${{ matrix.platform }}
-          RELEASE_FLAVOR: ${{ matrix.flavor }}
+          RELEASE_FLAVOR: lite
         run: |
           set -euo pipefail
           python - <<'PY' >> "$GITHUB_OUTPUT"
@@ -90,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/release/build_release.py \
-            --flavor "${{ matrix.flavor }}" \
+            --flavor "lite" \
             --platform "${{ matrix.platform }}" \
             --version "${{ steps.meta.outputs.tag }}" \
             --out-dir ./dist/release
