@@ -7,6 +7,15 @@ from typing import Optional
 import requests
 
 
+def normalize_image_extension(ext: str) -> str:
+    lowered = (ext or "").strip().lower()
+    if not lowered:
+        return ".jpg"
+    if lowered in {".jpe", ".jpeg"}:
+        return ".jpg"
+    return lowered
+
+
 def slugify(text: str) -> str:
     text = text.strip().lower()
     text = re.sub(r"[^a-z0-9]+", "-", text)
@@ -18,10 +27,12 @@ def guess_extension(url: str, content_type: Optional[str]) -> str:
     if content_type:
         ext = mimetypes.guess_extension(content_type.split(";")[0].strip())
         if ext:
-            return ext
+            return normalize_image_extension(ext)
     parsed = re.split(r"[?#]", url)[0]
     ext = Path(parsed).suffix
-    return ext if ext else ".jpg"
+    if ext:
+        return normalize_image_extension(ext)
+    return ".jpg"
 
 
 def stable_filename_from_url(url: str) -> str:

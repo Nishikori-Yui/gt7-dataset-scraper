@@ -3,7 +3,8 @@
 [English](DATASET_GENERATION.md) | [简体中文](DATASET_GENERATION.zh-CN.md)
 
 This document describes how to generate a GT7 SQLite dataset using `gt7_scraper`.
-For a conceptual overview (components + data flow), see `ARCHITECTURE.md`.
+For a conceptual overview (components + data flow), see [ARCHITECTURE.md](ARCHITECTURE.md).
+For hybrid mode build/run details, see [HYBRID_ENGINE.md](HYBRID_ENGINE.md).
 
 ## What Gets Stored
 By default, a run writes:
@@ -18,6 +19,15 @@ By default, a run writes:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Bootstrap scripts:
+```bash
+# pure Python mode
+./scripts/bootstrap_python_env.sh
+
+# hybrid mode (Go + Node + Rust)
+./scripts/bootstrap_hybrid_env.sh
 ```
 
 Optional Playwright fallback (for detail page extraction and list thumbnails):
@@ -52,8 +62,8 @@ flowchart TB
 
 Example (gb + cn):
 ```bash
-python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images ./output/images
-python -m gt7_scraper --locale cn --base-locale gb --db ./output/gt7.db --images ./output/images --resume
+python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images ./output/images --skip-images
+python -m gt7_scraper --locale cn --base-locale gb --db ./output/gt7.db --images ./output/images --resume --skip-images
 ```
 
 ## Small Test Runs
@@ -74,6 +84,15 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 ```
 
 ## Flags (Practical Notes)
+- `--engine python|hybrid`: choose execution mode (`hybrid` currently enables SQLite WAL + batched commits)
+- `--commit-batch N`: commit every N cars (engine default: `python=1`, `hybrid=50`)
+- `--sqlite-wal` / `--no-sqlite-wal`: explicitly enable or disable WAL mode
+- `--engines-dir PATH`: directory where hybrid external binaries are resolved
+- `--download-workers N`: downloader worker count for hybrid image downloads
+- `--download-timeout SEC`: downloader timeout for hybrid image downloads
+- `--download-retries N`: downloader retries for hybrid image downloads
+- `--playwright-engine python|node`: Playwright backend selection
+- `--spec-engine python|rust`: spec normalization backend selection
 - `--resume`: skips cars whose latest `fetch_log` status is `success` for the locale you are running
 - `--workers N`: parallelizes per-car processing using a thread pool (default: 1)
 - `--rate SEC`: sleeps after each processed car (global throttling; default: `0.7`)
@@ -81,6 +100,18 @@ python -m gt7_scraper --locale gb --base-locale gb --db ./output/gt7.db --images
 - `--use-playwright`: enables the Playwright fallback extraction path
 - `--playwright-workers N`: uses a dedicated Playwright pool (recommended only when `--use-playwright` is needed)
 - `--skip-images`: does not download images and does not create the `car_images` table for new DBs
+- `--hero-check off|soft|strict` (build_dbs): `strict` fails on any mismatch, `soft` reports diffs and fails only if both ratio and count exceed thresholds
+- `--hero-soft-max-ratio` (build_dbs): soft mode ratio threshold (default `0.05`)
+- `--hero-soft-max-count` (build_dbs): soft mode count threshold (default `20`)
+- `--hero-manifest` (build_dbs): expected hero-count manifest (default `./gt7_scraper/mappings/hero_expected_counts.json`)
+- `--reference-images-dir` (build_dbs): deprecated in build flow; use only with manifest generator script
+
+Generate/refresh hero manifest from a local reference dataset:
+```bash
+python scripts/generate_hero_manifest.py \
+  --reference-images-dir ./output/reference/images \
+  --out ./gt7_scraper/mappings/hero_expected_counts.json
+```
 
 ## Image Handling
 When enabled (default), images are downloaded into `--images` with a stable folder structure:

@@ -15,6 +15,10 @@
 - `docs/`：流程、Schema、发布与合规说明
 - `output/`：默认运行输出目录（已在 gitignore 中忽略）
 
+## 执行模式
+- `--engine python`：当前基线实现。
+- `--engine hybrid`：第一阶段优化路径；当前先启用 SQLite WAL 与批量提交，数据语义保持不变。
+
 ## 架构总览
 ```mermaid
 flowchart LR
@@ -95,6 +99,7 @@ flowchart TB
 
 ## 相关文档
 - 数据集生成：`DATASET_GENERATION.zh-CN.md`
+- 混合引擎：`HYBRID_ENGINE.zh-CN.md`
 - 数据库结构：`DB_SCHEMA.zh-CN.md`
 - 查询 CLI/API：`QUERY_CLI.zh-CN.md`
 - 法律与发布：`LEGAL_AND_PUBLISHING.zh-CN.md`

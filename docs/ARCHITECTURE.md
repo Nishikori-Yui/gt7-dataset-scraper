@@ -16,6 +16,10 @@ and how data is stored and queried.
 - `docs/`: workflow, schema, and publishing guidance
 - `output/`: default runtime output (ignored by git)
 
+## Execution Modes
+- `--engine python`: current baseline implementation.
+- `--engine hybrid`: phase-1 optimization path; currently enables SQLite WAL and batched commits while keeping data semantics unchanged.
+
 ## Architecture Overview
 ```mermaid
 flowchart LR
@@ -98,6 +102,7 @@ Example: a user-facing locale may be `br`, while the site assets might use `bp`.
 
 ## Related Documentation
 - Dataset generation: `DATASET_GENERATION.md`
+- Hybrid engine: `HYBRID_ENGINE.md`
 - Database schema: `DB_SCHEMA.md`
 - Query CLI/API: `QUERY_CLI.md`
 - Legal guidance: `LEGAL_AND_PUBLISHING.md`
