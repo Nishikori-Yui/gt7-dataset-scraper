@@ -169,7 +169,7 @@ def _extract_balanced(text: str, start: int) -> Tuple[str, int]:
             elif ch == string_char:
                 in_string = False
         else:
-            if ch in ('"', "'"):
+            if ch in ('"', "'", "`"):
                 in_string = True
                 string_char = ch
             elif ch in "[{":
@@ -209,10 +209,25 @@ def _replace_backtick_strings(literal: str) -> str:
         ch = literal[i]
         if ch == "`":
             i += 1
-            start = i
-            while i < len(literal) and literal[i] != "`":
+            content_chars: List[str] = []
+            escape = False
+            while i < len(literal):
+                current = literal[i]
+                if escape:
+                    content_chars.append(current)
+                    escape = False
+                    i += 1
+                    continue
+                if current == "\\":
+                    content_chars.append(current)
+                    escape = True
+                    i += 1
+                    continue
+                if current == "`":
+                    break
+                content_chars.append(current)
                 i += 1
-            content = literal[start:i]
+            content = "".join(content_chars)
             out.append(json.dumps(content))
             if i < len(literal) and literal[i] == "`":
                 i += 1
@@ -270,13 +285,22 @@ def find_largest_array(js_text: str):
 def parse_descriptions(js_text: str):
     export_names = ["Descriptions", "Description", "CarDescriptions", "DescriptionsData"]
     for name in export_names:
-        data = extract_exported_literal(js_text, name)
+        try:
+            data = extract_exported_literal(js_text, name)
+        except Exception:
+            continue
         if data is not None:
             return data
-    data = find_largest_object(js_text)
+    try:
+        data = find_largest_object(js_text)
+    except Exception:
+        data = None
     if data is not None:
         return data
-    data = find_largest_array(js_text)
+    try:
+        data = find_largest_array(js_text)
+    except Exception:
+        data = None
     if data is None:
         return {}
     if isinstance(data, dict):
