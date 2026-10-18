@@ -21,7 +21,7 @@ def copy_project(stage_root: Path) -> None:
     ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
     for name in ("gt7_scraper", "gt7_query", "scripts", "docs", "engines", "tests"):
         shutil.copytree(REPO_ROOT / name, stage_root / name, ignore=ignore)
-    for name in ("README.md", "README.zh-CN.md", "LICENSE", "requirements.txt"):
+    for name in ("README.md", "README.zh-CN.md", "LICENSE", "pyproject.toml", "uv.lock"):
         shutil.copy2(REPO_ROOT / name, stage_root / name)
 
 
@@ -42,9 +42,11 @@ def copy_launcher(stage_root: Path, platform_id: str) -> None:
             '@echo off\r\n'
             'setlocal\r\n'
             'set "ROOT=%~dp0.."\r\n'
-            'if not defined PYTHON_BIN set "PYTHON_BIN=python"\r\n'
-            'if exist "%ROOT%\\.venv\\Scripts\\python.exe" set "PYTHON_BIN=%ROOT%\\.venv\\Scripts\\python.exe"\r\n'
-            '"%PYTHON_BIN%" "%ROOT%\\scripts\\gt7db.py" %*\r\n'
+            'if "%~1"=="doctor" (\r\n'
+            '  uv run --no-sync --project "%ROOT%" python "%ROOT%\\scripts\\gt7db.py" %*\r\n'
+            ') else (\r\n'
+            '  uv run --locked --project "%ROOT%" python "%ROOT%\\scripts\\gt7db.py" %*\r\n'
+            ')\r\n'
             'exit /b %errorlevel%\r\n',
             encoding="utf-8",
             newline="",
@@ -56,9 +58,10 @@ def copy_launcher(stage_root: Path, platform_id: str) -> None:
         '#!/bin/sh\n'
         'set -eu\n'
         'ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"\n'
-        'PYTHON_BIN="${PYTHON_BIN:-python3}"\n'
-        'if [ -x "$ROOT/.venv/bin/python" ]; then PYTHON_BIN="$ROOT/.venv/bin/python"; fi\n'
-        'exec "$PYTHON_BIN" "$ROOT/scripts/gt7db.py" "$@"\n',
+        'if [ "${1:-}" = doctor ]; then\n'
+        '  exec uv run --no-sync --project "$ROOT" python "$ROOT/scripts/gt7db.py" "$@"\n'
+        'fi\n'
+        'exec uv run --locked --project "$ROOT" python "$ROOT/scripts/gt7db.py" "$@"\n',
         encoding="utf-8",
     )
     launcher.chmod(0o755)

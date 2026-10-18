@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import subprocess
@@ -38,24 +37,25 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse((package / "runtime").exists())
             self.assertFalse((package / ".venv").exists())
             self.assertFalse(any(package.rglob("__pycache__")))
-            launcher = launcher_path(package) if os.name != "nt" else Path(sys.executable)
-            prefix = [str(launcher)]
-            if os.name == "nt":
-                prefix.append(str(package / "scripts" / "gt7db.py"))
-            env = {**os.environ, "PYTHON_BIN": sys.executable}
-            for command in ("scrape", "build-dbs", "query"):
+            self.assertTrue((package / "pyproject.toml").is_file())
+            self.assertTrue((package / "uv.lock").is_file())
+            launcher = launcher_path(package)
+            env = {
+                **os.environ,
+                "UV_PYTHON": sys.executable,
+                "UV_OFFLINE": "1",
+                "UV_CACHE_DIR": str(root / "uv-cache"),
+            }
+            env["UV_PROJECT_ENVIRONMENT"] = str(Path(sys.prefix))
+            for command in ("scrape", "build-dbs", "query", "doctor"):
                 proc = subprocess.run(
-                    [*prefix, command, "--help"], cwd=root, env=env, capture_output=True, text=True,
+                    [sys.executable, str(package / "scripts" / "gt7db.py"), command, "--help"],
+                    cwd=root, env=env, capture_output=True, text=True,
                 )
                 self.assertEqual(proc.returncode, 0, proc.stderr)
-            proc = subprocess.run(
-                [*prefix, "doctor", "--json"], cwd=root, env=env, capture_output=True, text=True,
-            )
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            payload = json.loads(proc.stdout)
-            self.assertTrue(payload["packaged"])
-            self.assertEqual(Path(payload["project_root"]), package.resolve())
-
+            launcher_text = launcher.read_text(encoding="utf-8")
+            self.assertIn("uv run --locked --project", launcher_text)
+            self.assertIn("uv run --no-sync --project", launcher_text)
     def test_windows_package_selects_exe_files_and_cmd_launcher(self):
         with tempfile.TemporaryDirectory(prefix="gt7-windows-") as directory:
             root = Path(directory)

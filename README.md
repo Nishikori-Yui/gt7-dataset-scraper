@@ -6,29 +6,28 @@ Scrape the official Gran Turismo 7 car catalog into SQLite, with optional local 
 
 ## Quick start
 
-Install Python 3.10+, download the package for your platform from [GitHub Releases](https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest), and extract it:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), download the package for your platform from [GitHub Releases](https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest), and extract it:
 
 ```sh
 cd GT7DB_vX.Y.Z_linux_AMD64
 ./scripts/bootstrap.sh
-bin/gt7db doctor
-bin/gt7db scrape --locale gb --limit 10 --skip-images
-bin/gt7db query overview --db output/gt7.db
+uv run --locked bin/gt7db doctor
+uv run --locked bin/gt7db scrape --locale gb --limit 10 --skip-images
+uv run --locked bin/gt7db query overview --db output/gt7.db
 ```
 
-On Windows, create an environment with `python -m venv .venv`, install dependencies with `.venv\Scripts\python -m pip install -r requirements.txt`, then run `bin\gt7db.cmd`.
+On Windows, run `uv sync --locked`, then `bin\gt7db.cmd`.
 
 ## Develop from source
 
-Python 3.10+ is required. Go is optional and only used for the catalog parser and image downloader.
+Use uv to manage the Python environment and dependencies (Python 3.10+). uv downloads a compatible Python if needed. Go is optional and only used for the catalog parser and image downloader.
 
 ```sh
-./scripts/bootstrap.sh
-source .venv/bin/activate
-python -m gt7_scraper --help
+uv sync --locked
+uv run --locked python -m gt7_scraper --help
 ```
 
-Build the optional Go tools with `./scripts/bootstrap.sh --build-go` (Go 1.23+). The scraper uses them automatically when available and works with Python alone. Playwright is optional; install it with `python -m pip install playwright` and `python -m playwright install chromium` when browser fallback is needed.
+Build the optional Go tools with `./scripts/bootstrap.sh --build-go` (Go 1.23+). The scraper uses them automatically when available and works with Python alone. For browser fallback, run `uv sync --locked --extra browser` and `uv run --locked --extra browser python -m playwright install chromium`.
 
 See [Usage](docs/USAGE.md), [database schema](docs/DB_SCHEMA.md), and [release packaging](docs/RELEASE_PACKAGING.md).
 

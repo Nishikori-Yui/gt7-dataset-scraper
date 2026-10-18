@@ -4,21 +4,20 @@
 
 ## 环境
 
-源码开发需要 Python 3.10 及以上版本：
+安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)，在项目目录运行：
 
 ```sh
-./scripts/bootstrap.sh
-source .venv/bin/activate
+uv sync --locked
 ```
 
 Go 为可选依赖。运行 `./scripts/bootstrap.sh --build-go` 构建目录解析器和图片下载器，程序会自动检测使用；工具不可用时由 Python 完成相同任务。只有需要浏览器回退时才安装 Playwright 和 Chromium。
 
-Windows 请依次运行 `python -m venv .venv`、`.venv\Scripts\python -m pip install -r requirements.txt` 和 `.venv\Scripts\activate`。
+Windows 使用相同的 uv 命令。uv 管理 `.venv`，使用 Python 3.10 及以上版本。以下命令通过 `uv run` 执行，无需手动激活；也可在 macOS/Linux 运行 `source .venv/bin/activate`，或在 Windows cmd 运行 `.venv\Scripts\activate`。
 
 ## 抓取单个语言
 
 ```sh
-python -m gt7_scraper \
+uv run --locked python -m gt7_scraper \
   --locale gb \
   --limit 10 \
   --car-list scripts/example_car_ids_10.txt \
@@ -30,7 +29,7 @@ python -m gt7_scraper \
 ## 构建多个语言版本
 
 ```sh
-python scripts/build_dbs.py --resume
+uv run --locked python scripts/build_dbs.py --resume
 ```
 
 该命令抓取全部 21 种语言，共享图片仅在基准语言阶段下载一套，最终将各语言库合并为 `gt7.db`。`--resume` 保留已有语言库，并跳过已成功记录的车辆。可用 `--locales gb,us,cn` 或 `--limit 10` 做小规模测试。
@@ -40,10 +39,10 @@ python scripts/build_dbs.py --resume
 ## 查询数据库
 
 ```sh
-python -m gt7_query overview --db output/gt7.db
-python -m gt7_query list --db output/gt7.db --locale gb --limit 10
-python -m gt7_query car --db output/gt7.db --locale cn --car-id car31
-python -m gt7_query stats --db output/gt7.db --by country
+uv run --locked python -m gt7_query overview --db output/gt7.db
+uv run --locked python -m gt7_query list --db output/gt7.db --locale gb --limit 10
+uv run --locked python -m gt7_query car --db output/gt7.db --locale cn --car-id car31
+uv run --locked python -m gt7_query stats --db output/gt7.db --by country
 ```
 
 查询统一使用 Python 和 SQLite。发布包也提供相同命令，例如 `bin/gt7db query overview --db output/gt7.db`。
@@ -53,9 +52,9 @@ python -m gt7_query stats --db output/gt7.db --by country
 当静态页面数据不足时再安装 Playwright：
 
 ```sh
-python -m pip install playwright
-python -m playwright install chromium
-python -m gt7_scraper --locale gb --use-playwright
+uv sync --locked --extra browser
+uv run --locked --extra browser python -m playwright install chromium
+uv run --locked python -m gt7_scraper --locale gb --use-playwright
 ```
 
-运行 `python scripts/gt7db.py doctor --json` 可检查源码环境或发布包。
+运行 `uv run --locked python scripts/gt7db.py doctor --json` 可检查源码环境或发布包。

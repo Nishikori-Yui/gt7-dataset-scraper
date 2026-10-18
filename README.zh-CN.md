@@ -6,29 +6,28 @@
 
 ## 快速开始
 
-安装 Python 3.10 及以上版本，从 [GitHub Releases](https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest) 下载对应平台的压缩包并解压：
+安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)，从 [GitHub Releases](https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest) 下载对应平台的压缩包并解压：
 
 ```sh
 cd GT7DB_vX.Y.Z_linux_AMD64
 ./scripts/bootstrap.sh
-bin/gt7db doctor
-bin/gt7db scrape --locale gb --limit 10 --skip-images
-bin/gt7db query overview --db output/gt7.db
+uv run --locked bin/gt7db doctor
+uv run --locked bin/gt7db scrape --locale gb --limit 10 --skip-images
+uv run --locked bin/gt7db query overview --db output/gt7.db
 ```
 
-Windows 请先运行 `python -m venv .venv` 和 `.venv\Scripts\python -m pip install -r requirements.txt`，再运行 `bin\gt7db.cmd`。
+Windows 请先运行 `uv sync --locked`，再运行 `bin\gt7db.cmd`。
 
 ## 源码开发
 
-需要 Python 3.10 及以上版本。Go 为可选依赖，只用于目录解析和图片下载。
+使用 uv 管理 Python 环境和依赖（Python 3.10 及以上版本），缺少合适的 Python 时由 uv 自动下载。Go 为可选依赖，只用于目录解析和图片下载。
 
 ```sh
-./scripts/bootstrap.sh
-source .venv/bin/activate
-python -m gt7_scraper --help
+uv sync --locked
+uv run --locked python -m gt7_scraper --help
 ```
 
-安装 Go 1.23 及以上版本后，可用 `./scripts/bootstrap.sh --build-go` 构建可选工具，程序会自动使用；只安装 Python 也能运行。浏览器回退为可选功能；需要时安装 `playwright` 并执行 `python -m playwright install chromium`。
+安装 Go 1.23 及以上版本后，可用 `./scripts/bootstrap.sh --build-go` 构建可选工具，程序会自动使用；只安装 Python 也能运行。需要浏览器回退时，运行 `uv sync --locked --extra browser` 和 `uv run --locked --extra browser python -m playwright install chromium`。
 
 详见[使用指南](docs/USAGE.zh-CN.md)、[数据库结构](docs/DB_SCHEMA.zh-CN.md)和[发布打包](docs/RELEASE_PACKAGING.zh-CN.md)。
 

@@ -55,6 +55,14 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9
+        with:
+          version: "latest"
+          enable-cache: true
+        env:
+          UV_PYTHON: "3.13"
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -64,8 +72,8 @@ jobs:
       - name: Check Python workflows
         shell: bash
         run: |
-          python -m pip install -r requirements.txt
-          python -m unittest discover -s tests -v
+          uv sync --locked --python 3.13
+          uv run --locked python -m unittest discover -s tests -v
 
       - name: Resolve package basename
         id: pkg
@@ -75,7 +83,7 @@ jobs:
           RELEASE_PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
-          python - <<'PY' >> "$GITHUB_OUTPUT"
+          uv run --locked python - <<'PY' >> "$GITHUB_OUTPUT"
           import os
           from scripts.release.release_native import release_basename
           print(f"basename={release_basename(os.environ['RELEASE_TAG'], os.environ['RELEASE_PLATFORM'])}")
@@ -85,7 +93,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/release/build_release.py \
+          uv run --locked python scripts/release/build_release.py \
             --platform "${{ matrix.platform }}" \
             --version "${{ steps.meta.outputs.tag }}" \
             --out-dir ./dist/release
@@ -95,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           PKG_DIR="./dist/release/${{ steps.pkg.outputs.basename }}"
-          python scripts/release/smoke_release.py --package-dir "$PKG_DIR"
+          uv run --locked python scripts/release/smoke_release.py --package-dir "$PKG_DIR"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

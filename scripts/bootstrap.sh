@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+UV_PYTHON_VERSION=""
 BUILD_GO=0
 INSTALL_PLAYWRIGHT=0
 INSTALL_BROWSER=0
@@ -12,7 +12,7 @@ usage() {
 Usage: scripts/bootstrap.sh [options]
 
 Options:
-  --python-bin PATH           Python executable (default: python3)
+  --python VERSION            Python version for uv (for example 3.12)
   --build-go                  Build the optional Go parser and image downloader
   --with-playwright           Install the optional Python Playwright package
   --with-playwright-browser    Also install Chromium for Playwright
@@ -22,9 +22,9 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --python-bin)
-      [[ $# -ge 2 ]] || { echo "--python-bin requires a path" >&2; exit 2; }
-      PYTHON_BIN="$2"
+    --python)
+      [[ $# -ge 2 ]] || { echo "--python requires a version" >&2; exit 2; }
+      UV_PYTHON_VERSION="$2"
       shift 2
       ;;
     --build-go)
@@ -52,16 +52,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-command -v "${PYTHON_BIN}" >/dev/null 2>&1 || { echo "Python not found: ${PYTHON_BIN}" >&2; exit 1; }
+command -v uv >/dev/null 2>&1 || { echo "uv is required: https://docs.astral.sh/uv/getting-started/installation/" >&2; exit 1; }
 cd "${ROOT_DIR}"
-"${PYTHON_BIN}" -m venv .venv
-"${ROOT_DIR}/.venv/bin/python" -m pip install -r requirements.txt
-
+SYNC_ARGS=(sync --locked)
+if [[ -n "${UV_PYTHON_VERSION}" ]]; then
+  SYNC_ARGS+=(--python "${UV_PYTHON_VERSION}")
+fi
 if [[ "${INSTALL_PLAYWRIGHT}" -eq 1 ]]; then
-  "${ROOT_DIR}/.venv/bin/python" -m pip install playwright
-  if [[ "${INSTALL_BROWSER}" -eq 1 ]]; then
-    "${ROOT_DIR}/.venv/bin/python" -m playwright install chromium
-  fi
+  SYNC_ARGS+=(--extra browser)
+fi
+uv "${SYNC_ARGS[@]}"
+if [[ "${INSTALL_BROWSER}" -eq 1 ]]; then
+  uv run --locked --extra browser python -m playwright install chromium
 fi
 
 if [[ "${BUILD_GO}" -eq 1 ]]; then
@@ -74,9 +76,9 @@ fi
 cat <<'EOF'
 Environment ready.
 
-Activate it with:
-  source .venv/bin/activate
-
 Run the scraper with:
-  python -m gt7_scraper --help
+  uv run python -m gt7_scraper --help
+
+Or activate the environment:
+  source .venv/bin/activate
 EOF
