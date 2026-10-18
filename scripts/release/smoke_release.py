@@ -1,34 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
-import shutil
+import os
 import sqlite3
 import subprocess
 import tempfile
 from pathlib import Path
-
-
-EXPECTED_DEFAULTS = {
-    "scrape": {
-        "engine": "hybrid",
-        "catalog_engine": "go",
-        "spec_engine": "rust",
-        "backend_fallback": "off",
-    },
-    "build_dbs": {
-        "engine": "hybrid",
-        "catalog_engine": "go",
-        "spec_engine": "rust",
-        "merge_engine": "go",
-        "hero_check_engine": "rust",
-        "backend_fallback": "off",
-    },
-    "query": {
-        "query_engine": "go",
-        "query_fallback": "off",
-        "query_mode": "go-first",
-    },
-}
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -80,67 +58,64 @@ def check_manifest(package_dir: Path) -> dict:
     manifest_path = package_dir / "manifest.json"
     assert_true(manifest_path.exists(), f"manifest missing: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert_true(manifest.get("defaults") == EXPECTED_DEFAULTS, "manifest defaults mismatch")
-    assert_true((package_dir / "SHA256SUMS").exists(), "SHA256SUMS missing")
+    assert_true(manifest.get("schema_version") == 2, "manifest schema mismatch")
+    assert_true((package_dir / manifest["entrypoint"]).is_file(), "manifest entrypoint missing")
+    checksums = package_dir / "SHA256SUMS"
+    assert_true(checksums.is_file(), "SHA256SUMS missing")
+    for line in checksums.read_text(encoding="utf-8").splitlines():
+        digest, name = line.split("  ", 1)
+        path = package_dir / name
+        assert_true(path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest, f"checksum mismatch: {name}")
     return manifest
 
 
+def check_native(package_dir: Path, platform_id: str) -> None:
+    suffix = ".exe" if platform_id.startswith("win-") else ""
+    native_dir = package_dir / "local" / "bin"
+    for name in ("gt7-catalog-go", "gt7-downloader"):
+        assert_true((native_dir / f"{name}{suffix}").is_file(), f"native tool missing: {name}")
+
+
 def launcher_path(package_dir: Path) -> Path:
-    exe = package_dir / "bin" / "gt7db.exe"
-    if exe.exists():
-        return exe
+    command = package_dir / "bin" / "gt7db.cmd"
+    if command.exists():
+        return command
     unix = package_dir / "bin" / "gt7db"
     if unix.exists():
         return unix
     raise SystemExit("launcher missing under bin/")
 
 
+def launch(launcher: Path, *args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
+    command = [str(launcher), *args]
+    if launcher.suffix.lower() == ".cmd" and os.name == "nt":
+        command = [os.environ.get("COMSPEC", "cmd.exe"), "/c", *command]
+    return run(command, cwd=cwd)
+
+
 def check_doctor(package_dir: Path, launcher: Path) -> None:
-    proc = run([str(launcher), "doctor", "--json"], cwd=package_dir)
+    proc = launch(launcher, "doctor", "--json", cwd=package_dir)
     assert_true(proc.returncode == 0, f"doctor failed: {proc.stderr}")
     data = json.loads(proc.stdout)
-    defaults = data.get("defaults", {})
-    assert_true(defaults.get("query", [])[-1] == "off", "doctor query fallback default is not off")
-    assert_true(defaults.get("build-dbs", [])[-1] == "off", "doctor build-dbs fallback default is not off")
+    expected_tools = {"gt7-catalog-go": True, "gt7-downloader": True}
+    assert_true(data.get("native_bins") == expected_tools, "doctor cannot find Go tools")
 
 
-def check_query_fallback_off(package_dir: Path, launcher: Path) -> None:
-    native_dir = package_dir / "runtime" / "native"
-    go_query = native_dir / "gt7-query-go"
-    if not go_query.exists():
-        go_query = native_dir / "gt7-query-go.exe"
-    assert_true(go_query.exists(), "gt7-query-go missing in runtime/native")
-
-    temp = Path(tempfile.mkdtemp(prefix="gt7db-smoke-"))
-    try:
-        db_path = temp / "smoke.db"
+def check_query(package_dir: Path, launcher: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="gt7db-smoke-") as directory:
+        db_path = Path(directory) / "smoke.db"
         ensure_minimal_db(db_path)
-
-        bak = go_query.with_name(go_query.name + ".bak")
-        go_query.rename(bak)
-        try:
-            proc = run([str(launcher), "query", "overview", "--db", str(db_path)], cwd=package_dir)
-            assert_true(proc.returncode != 0, "query unexpectedly succeeded without go backend")
-            text = (proc.stderr + "\n" + proc.stdout).lower()
-            assert_true("query-fallback=off" in text, "fallback-off message missing in query failure")
-        finally:
-            bak.rename(go_query)
-    finally:
-        shutil.rmtree(temp, ignore_errors=True)
+        proc = launch(launcher, "query", "overview", "--db", str(db_path), cwd=package_dir)
+        assert_true(proc.returncode == 0, f"query overview failed: {proc.stderr}")
+        data = json.loads(proc.stdout)
+        assert_true(data.get("cars") == 0, "query overview returned unexpected data")
 
 
 def check_build_dbs_entrypoint(package_dir: Path, launcher: Path) -> None:
-    proc = run([str(launcher), "build-dbs", "--help"], cwd=package_dir)
+    proc = launch(launcher, "build-dbs", "--help", cwd=package_dir)
     assert_true(proc.returncode == 0, f"build-dbs --help failed: {proc.stderr}")
     text = proc.stdout + "\n" + proc.stderr
     assert_true("Build per-locale DBs" in text, "build-dbs help output mismatch")
-
-
-def check_excluded_modules(package_dir: Path, manifest: dict) -> None:
-    worker_root = package_dir / "runtime" / "python" / "worker"
-    for rel in manifest.get("excluded_python_modules", []):
-        path = worker_root / rel
-        assert_true(not path.exists(), f"excluded module still exists: {rel}")
 
 
 def main() -> None:
@@ -150,11 +125,11 @@ def main() -> None:
 
     package_dir = Path(args.package_dir).resolve()
     manifest = check_manifest(package_dir)
+    check_native(package_dir, manifest.get("target_platform", ""))
     launcher = launcher_path(package_dir)
     check_doctor(package_dir, launcher)
     check_build_dbs_entrypoint(package_dir, launcher)
-    check_query_fallback_off(package_dir, launcher)
-    check_excluded_modules(package_dir, manifest)
+    check_query(package_dir, launcher)
     print("[ok] release smoke passed")
 
 

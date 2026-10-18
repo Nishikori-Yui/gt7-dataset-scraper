@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: build-${{ matrix.platform }}-lite
+    name: build-${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -61,20 +61,11 @@ jobs:
           go-version: "1.23"
           cache: false
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust target for darwin-amd64 cross-build
-        if: matrix.platform == 'darwin-amd64'
+      - name: Check Python workflows
         shell: bash
         run: |
-          set -euo pipefail
-          rustup target add x86_64-apple-darwin
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
+          python -m pip install -r requirements.txt
+          python -m unittest discover -s tests -v
 
       - name: Resolve package basename
         id: pkg
@@ -82,13 +73,12 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
           RELEASE_PLATFORM: ${{ matrix.platform }}
-          RELEASE_FLAVOR: lite
         run: |
           set -euo pipefail
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import os
           from scripts.release.release_native import release_basename
-          print(f"basename={release_basename(os.environ['RELEASE_TAG'], os.environ['RELEASE_PLATFORM'], os.environ['RELEASE_FLAVOR'])}")
+          print(f"basename={release_basename(os.environ['RELEASE_TAG'], os.environ['RELEASE_PLATFORM'])}")
           PY
 
       - name: Build release package
@@ -96,7 +86,6 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/release/build_release.py \
-            --flavor "lite" \
             --platform "${{ matrix.platform }}" \
             --version "${{ steps.meta.outputs.tag }}" \
             --out-dir ./dist/release

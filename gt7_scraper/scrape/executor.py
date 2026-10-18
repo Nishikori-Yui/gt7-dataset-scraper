@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 from tqdm import tqdm
 
 from .. import db
-from ..backends.spec.rust_normalizer import normalize_codes_with_rust, normalize_specs_with_rust
 from ..parser import json_dumps, map_spec_label, normalize_specs as normalize_specs_py
 from .constants import BASE_URL
 from .detail_fetch import extract_detail_with_playwright, extract_detail_with_playwright_on_page
@@ -105,49 +104,7 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
                 hero_urls = detail_heroes
     if ctx["use_playwright"]:
         try:
-            detail_data: Dict[str, Any] = {}
-            if ctx["node_playwright_script"] is not None:
-                try:
-                    detail_data = ctx["extract_detail_with_node"](
-                        script=ctx["node_playwright_script"],
-                        car_id=car_id,
-                        locale=ctx["path_locale"],
-                        timeout=ctx["timeout"],
-                        workers=max(1, ctx["playwright_workers"] or ctx["workers"] or 1),
-                    )
-                except Exception:
-                    detail_data = {}
-                node_heroes = detail_data.get("hero_images") if isinstance(detail_data, dict) else None
-                node_hero_count = len(node_heroes) if isinstance(node_heroes, list) else 0
-                node_low_quality = (not detail_data) or (not detail_data.get("detail")) or (node_hero_count <= 1)
-                if node_low_quality:
-                    try:
-                        if ctx["pw_pool"] is not None:
-                            fallback_detail = ctx["pw_pool"].fetch(car_id)
-                        else:
-                            page = ctx["get_playwright_page"]()
-                            if page is not None:
-                                fallback_detail = extract_detail_with_playwright_on_page(
-                                    page, car_id, ctx["path_locale"], ctx["timeout"]
-                                )
-                            else:
-                                fallback_detail = extract_detail_with_playwright(
-                                    car_id, ctx["path_locale"], ctx["timeout"]
-                                )
-                    except Exception:
-                        fallback_detail = {}
-                    if fallback_detail:
-                        for key in ["name", "manufacturer_name", "intro", "detail", "specs"]:
-                            value = fallback_detail.get(key)
-                            if value and not detail_data.get(key):
-                                detail_data[key] = value
-                        fb_heroes = fallback_detail.get("hero_images")
-                        if isinstance(fb_heroes, list) and len(fb_heroes) > node_hero_count:
-                            detail_data["hero_images"] = fb_heroes
-                        fb_thumbs = fallback_detail.get("thumb_images")
-                        if isinstance(fb_thumbs, list) and fb_thumbs:
-                            detail_data["thumb_images"] = fb_thumbs
-            elif ctx["pw_pool"] is not None:
+            if ctx["pw_pool"] is not None:
                 detail_data = ctx["pw_pool"].fetch(car_id)
             else:
                 page = ctx["get_playwright_page"]()
@@ -198,8 +155,6 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
                 retries=ctx["download_retries"],
             )
         except Exception:
-            if not ctx.get("backend_fallback", True):
-                raise
             session = ctx["get_session"]()
             logo_path = build_logo(manufacturer_id, logo_url, ctx["image_dir"], session, ctx["timeout"])
             image_rows = build_car_images(
@@ -237,22 +192,6 @@ def process_car(car_id: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
             continue
         filtered_pairs.append((label, raw_value))
     spec_pairs = filtered_pairs
-    if ctx["rust_spec_bin"] is not None:
-        try:
-            normalized_codes = normalize_codes_with_rust(
-                binary=ctx["rust_spec_bin"],
-                locale=ctx["locale"],
-                aspiration=aspiration_raw,
-                aspiration_short=aspiration_code,
-                drivetrain=drivetrain_label or ctx["pick_first"](car, ["driveTrain"]),
-            )
-            aspiration_code = normalized_codes.get("aspiration_code") or aspiration_code
-            aspiration_label = normalized_codes.get("aspiration_label") or aspiration_label
-            drivetrain_code = normalized_codes.get("drivetrain_code") or drivetrain_code
-            drivetrain_label = normalized_codes.get("drivetrain_label") or drivetrain_label
-        except Exception:
-            if not ctx.get("backend_fallback", True):
-                raise
     return {
         "car_id": car_id,
         "manufacturer": {
@@ -332,20 +271,7 @@ def run_car_processing(
                     code = result["drivetrain"]["code"]
                     label = result["drivetrain"].get("label") or code
                     db.upsert_drivetrain(conn, code, ctx["locale"], label, default_name=code)
-                if ctx["rust_spec_bin"] is not None:
-                    try:
-                        spec_rows = normalize_specs_with_rust(
-                            binary=ctx["rust_spec_bin"],
-                            specs=result["spec_pairs"],
-                            locale=ctx["locale"],
-                            mappings_dir=ctx["spec_mappings_dir"],
-                        )
-                    except Exception:
-                        if not ctx.get("backend_fallback", True):
-                            raise
-                        spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])
-                else:
-                    spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])
+                spec_rows = normalize_specs_py(result["spec_pairs"], locale=ctx["locale"])
                 db.replace_specs(conn, car_id, spec_rows)
                 for spec in spec_rows:
                     if spec.get("spec_key") and spec.get("spec_label"):

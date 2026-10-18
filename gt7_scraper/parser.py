@@ -321,7 +321,7 @@ def parse_spec_value(raw: str) -> Tuple[str, str]:
     if raw is None:
         return "", ""
     raw = str(raw).strip()
-    match = re.match(r"^([0-9][0-9.,\\s]*)\\s*(.*)$", raw)
+    match = re.match(r"^([0-9][0-9.,\s]*)\s*(.*)$", raw)
     if match:
         value = match.group(1).replace(" ", "")
         unit = match.group(2).strip()
