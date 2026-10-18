@@ -9,7 +9,6 @@ from .hero_check import (
     validate_hero_counts,
     write_hero_diff_reports,
 )
-from .hero_check_rust import run_rust_hero_check
 
 
 def run_hero_validation(
@@ -36,28 +35,10 @@ def run_hero_validation(
 
     checked_rows = 0
     all_diffs: List[Dict[str, object]] = []
-    if args.hero_check_engine == "rust":
-        ok, msg, checked_rows, all_diffs = run_rust_hero_check(
-            binary=Path(args.hero_check_rust_bin),
-            db_paths=db_targets,
-            manifest_path=manifest_path,
-            hero_min=max(1, int(args.hero_min)),
-        )
-        if ok:
-            if msg:
-                print(msg)
-        else:
-            if args.backend_fallback == "off":
-                raise SystemExit(f"hero-check-engine=rust failed and backend-fallback=off: {msg}")
-            print(f"warning: {msg}; falling back to python hero-check", file=sys.stderr)
-            checked_rows = 0
-            all_diffs = []
-
-    if checked_rows == 0 and not all_diffs:
-        for path in db_targets:
-            checked, diffs = validate_hero_counts(path, ref_counts, max(1, int(args.hero_min)))
-            checked_rows += checked
-            all_diffs.extend(diffs)
+    for path in db_targets:
+        checked, diffs = validate_hero_counts(path, ref_counts, max(1, int(args.hero_min)))
+        checked_rows += checked
+        all_diffs.extend(diffs)
 
     write_hero_diff_reports(out_dir, all_diffs)
     mismatch_rows = len(all_diffs)

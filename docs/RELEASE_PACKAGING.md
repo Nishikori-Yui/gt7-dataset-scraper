@@ -1,165 +1,31 @@
-# Release Packaging (gt7db)
+# Release packages
 
-[English](RELEASE_PACKAGING.md) | [简体中文](RELEASE_PACKAGING.zh-CN.md)
+[简体中文](RELEASE_PACKAGING.zh-CN.md)
 
-This document defines how GT7-Dataset is distributed and consumed in production.
+Download a package from [GitHub Releases](https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest). Each archive contains the source, guides, `pyproject.toml`, `uv.lock`, and two prebuilt Go tools for its target platform. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run `uv sync --locked` inside the extracted directory on any platform.
 
-## Preferred Consumption Path
-Use the prebuilt GitHub Release package first.
+Run `uv run --locked bin/gt7db` on macOS/Linux or Windows. The launcher uses the packaged project and its `.venv`. It provides `scrape`, `build-dbs`, `query`, and `doctor`. Both source and release runs detect the optional tools in `local/bin` automatically; Python handles their tasks when unavailable. Merge, validation, and queries use Python and SQLite. uv installs Python and dependencies as needed; browser binaries are installed separately.
 
-- Download from: https://github.com/Nishikori-Yui/gt7-dataset-scraper/releases/latest
-- Choose `GT7DB_*_LITE_<OS>_<ARCH>` for your host platform.
-- Run `bin/gt7db` (`bin/gt7db.exe` on Windows) directly.
+Packages are built for macOS arm64/amd64, Linux arm64/amd64, and Windows arm64/amd64. Names follow `GT7DB_<version>_<os>_<ARCH>`.
 
-Manual local build is intended for development, debugging, or custom packaging needs.
-For command-level operations, see `GT7DB_USAGE.md`.
+## Build locally
 
-## Distribution Goals
-- `gt7db` (.NET launcher) is the unified entrypoint.
-- Common workflows run without local Go/Rust/Node/Python toolchains.
-- Packaged runtime uses native-first defaults and deterministic fallback policy (`fallback=off`).
-- Release artifacts exclude Python backend modules that are replaced by native implementations.
+Use uv and Go 1.23+. Go cross-compiles for the selected target; run the resulting package on that target to verify it:
 
-## Package Types
-- `lite` (default release artifact):
-  - `gt7db` launcher
-  - bundled Python runtime + minimal worker/orchestration modules
-  - required native binaries
-  - no Playwright browser runtime
-- `full` (optional, local/manual only):
-  - `lite` + Node runtime + Playwright worker + browser dependencies
-  - intended for debugging environments that explicitly require browser fallback
-
-## Target Platforms
-- `darwin-arm64`
-- `darwin-amd64`
-- `linux-amd64`
-- `linux-arm64`
-- `win-amd64`
-- `win-arm64`
-
-## Artifact Naming
-Release package directory and archives use:
-- `GT7DB_<version>_<FLAVOR>_<os>_<ARCH>`
-
-Examples:
-- `GT7DB_v1.2.3_LITE_macOS_ARM64`
-- `GT7DB_v1.2.3_LITE_windows_AMD64.zip`
-- `GT7DB_v1.2.3_LITE_linux_ARM64.tar.gz`
-
-## Package Layout
-```text
-<package-root>/
-  bin/
-    gt7db            # or gt7db.exe on Windows
-  runtime/
-    python/
-      ...            # bundled Python runtime
-      worker/
-        gt7_scraper/
-        gt7_query/
-        scripts/build_dbs.py
-    native/
-      gt7-catalog-go
-      gt7-downloader
-      gt7-spec-normalizer
-      gt7-db-merge-go
-      gt7-hero-check
-      gt7-query-go
-      ...
-  manifest.json
-  SHA256SUMS
-```
-
-## Runtime Defaults in Package
-The packaged `gt7db` launcher injects these defaults when not explicitly provided:
-- `scrape`: `--engine hybrid --catalog-engine go --spec-engine rust --backend-fallback off`
-- `build-dbs`: `--engine hybrid --catalog-engine go --spec-engine rust --merge-engine go --hero-check-engine rust --backend-fallback off`
-- `query`: `--query-engine go --query-fallback off` (go-first)
-
-`--engines-dir` / binary paths are injected to `runtime/native` in packaged mode.
-
-## Excluded Python Modules
-Default release artifacts exclude replaceable Python backend modules, including:
-- `gt7_query/backends/python_backend.py`
-- legacy entry compatibility shims (`gt7_query/cli.py`, `gt7_query/queries.py`, `gt7_scraper/cli.py`, `gt7_scraper/scraper.py`)
-- legacy engine bridge shims under `gt7_scraper/engine/*` for catalog/downloader/playwright/spec
-
-For diagnostics, use `--include-full-python-backends` in manual packaging.
-
-## Quick Run (From Downloaded Release)
-```bash
-./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db doctor --json
-./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db scrape --locale gb --db ./output/gt7.db --images ./output/images --skip-images
-./GT7DB_vX.Y.Z_LITE_linux_AMD64/bin/gt7db query overview --db ./output/gt7.db
-```
-
-## Manual Packaging (Optional)
-Prerequisites:
-- Python 3.13+
-- Go
-- Rust/Cargo
-- .NET 8 SDK
-- Node 20+ (only when building `full`)
-
-### Lite (recommended manual path)
-```bash
-python scripts/release/build_release.py \
-  --flavor lite \
+```sh
+uv run --locked python scripts/release/build_release.py \
   --platform darwin-arm64 \
   --version vX.Y.Z \
   --out-dir ./dist/release
 ```
 
-### Full (debug-only optional)
-```bash
-python scripts/release/build_release.py \
-  --flavor full \
-  --platform darwin-arm64 \
-  --version vX.Y.Z \
-  --out-dir ./dist/release
+Add `--skip-build` to reuse Go binaries already present in `local/bin`. The resulting package directory and archive are written under `dist/release`.
+
+Run the package smoke check on the target platform:
+
+```sh
+uv run --locked python scripts/release/smoke_release.py \
+  --package-dir ./dist/release/GT7DB_vX.Y.Z_macOS_ARM64
 ```
 
-### Manual matrix build (lite-first)
-```bash
-TAG=vX.Y.Z
-for PLATFORM in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 win-amd64 win-arm64; do
-  python scripts/release/build_release.py \
-    --flavor lite \
-    --platform "${PLATFORM}" \
-    --version "${TAG}" \
-    --out-dir ./dist/release
-done
-```
-
-### Smoke check
-```bash
-python scripts/release/smoke_release.py \
-  --package-dir ./dist/release/GT7DB_vX.Y.Z_LITE_macOS_ARM64
-```
-
-## CI/CD Release Flow
-Workflow: `.github/workflows/release-packages.yml`
-
-Triggers:
-- Push tag: `v*`
-- Manual dispatch with `tag` input
-
-Pipeline (default release path):
-1. Matrix build by platform (lite-only) produces package archives.
-2. Smoke checks validate runtime defaults and `query-fallback=off` behavior.
-3. Artifacts are uploaded.
-4. GitHub Release is published/updated with artifacts and checksums.
-
-## Troubleshooting
-- Missing native backend in package:
-  - Run `bin/gt7db doctor --json`.
-  - Check `runtime/native` and `manifest.json`.
-- Worker startup failure:
-  - Verify `runtime/python` exists.
-  - Verify `runtime/python/worker` includes `gt7_scraper`, `gt7_query`, `scripts/build_dbs.py`.
-- Platform mismatch:
-  - Verify package suffix matches host architecture.
-  - Rebuild with the correct `--platform` when using manual packaging.
-- Browser fallback required:
-  - Use manual `full` package build.
+The smoke check uses the dependencies locked in `uv.lock`. It verifies file checksums, launcher paths, command entrypoints, and a SQLite query. The GitHub Actions workflow builds all six targets and publishes archives when a `v*` tag is pushed, or when run manually with a release tag.

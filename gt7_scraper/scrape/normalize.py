@@ -41,11 +41,7 @@ def normalize_aspiration_code(raw_value: Optional[str], locale: str) -> Optional
     text_clean = text.replace(" ", "").replace("＋", "+").upper()
     if "TC+SC" in text_clean:
         return "TC+SC"
-    if text_clean.startswith("TC+SC"):
-        return "TC+SC"
-    if re.match(r"^TC\\+SC$", text_clean):
-        return "TC+SC"
-    if re.match(r"^T(\\b|\\+)", text_clean):
+    if re.match(r"^T(\b|\+)", text_clean):
         return "TC"
     for code in ["NA", "TC", "SC", "EV", "HV"]:
         if text_clean.startswith(code):

@@ -1,4 +1,4 @@
-from .app.query_cli import main
+from .cli import main
 
 
 if __name__ == "__main__":

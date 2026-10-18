@@ -121,7 +121,7 @@ class PlaywrightPool:
 
 
 def parse_list_html_for_thumbs(html: str) -> Dict[str, List[str]]:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     thumb_map: Dict[str, List[str]] = {}
     for img in soup.find_all("img"):
         src = img.get("src") or ""
@@ -173,7 +173,7 @@ def parse_list_html_for_thumbs_with_backend(
 ) -> Dict[str, List[str]]:
     if go_catalog_bin:
         try:
-            from ..backends.catalog.go_parser import parse_list_thumbs_with_go
+            from ..backends.catalog import parse_list_thumbs_with_go
 
             parsed = parse_list_thumbs_with_go(go_catalog_bin, html)
             if parsed:
@@ -257,7 +257,7 @@ def extract_intro_detail(soup: BeautifulSoup) -> Tuple[Optional[str], Optional[s
 
 
 def parse_detail_html(html: str, car_id: Optional[str] = None) -> Dict[str, Any]:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     data: Dict[str, Any] = {}
 
     h1 = soup.find("h1")

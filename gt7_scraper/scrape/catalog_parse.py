@@ -48,7 +48,7 @@ def normalize_url(url: str) -> str:
 
 
 def extract_index_js_url(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     for script in soup.find_all("script"):
         src = script.get("src")
         if not src:
@@ -69,7 +69,7 @@ def extract_site_total_count(html: str) -> Optional[int]:
 
 
 def parse_og_description(html: str) -> Optional[str]:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     og = soup.find("meta", attrs={"property": "og:description"})
     if og and og.get("content"):
         content = og.get("content").strip()
@@ -129,11 +129,10 @@ def parse_chunk_with_backend(
     chunk_type: str,
     go_catalog_bin: Optional[str],
     warning_state: Optional[Dict[str, bool]] = None,
-    allow_fallback: bool = True,
 ) -> Any:
     if go_catalog_bin:
         try:
-            from ..backends.catalog.go_parser import parse_chunk_with_go
+            from ..backends.catalog import parse_chunk_with_go
 
             parsed = parse_chunk_with_go(go_catalog_bin, js_text, chunk_type)
             if chunk_type in {"car", "tuner"}:
@@ -141,8 +140,6 @@ def parse_chunk_with_backend(
             if chunk_type == "id_list":
                 return parsed if isinstance(parsed, list) else None
         except Exception as exc:
-            if not allow_fallback:
-                raise ScraperError(f"gt7-catalog-go failed and backend-fallback=off: {exc}") from exc
             shown = bool((warning_state or {}).get("shown"))
             if not shown:
                 print(f"warning: gt7-catalog-go failed ({exc}); using python catalog parser", file=sys.stderr)

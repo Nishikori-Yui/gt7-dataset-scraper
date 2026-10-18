@@ -1,1 +1,1 @@
-"""Scraper helper modules extracted from scraper_run.py."""
+"""Catalog parsing, image handling, and car processing."""
